@@ -2,11 +2,14 @@ import 'dart:async';
 import 'dart:io';
 import 'package:dartssh2/dartssh2.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../core/models/vps_model.dart';
 import '../core/services/credential_service.dart';
 import '../core/services/ssh_key_service.dart';
 import '../core/constants/strings.dart';
 import 'vps_list_provider.dart';
+
+const _kAutoConnectKey = 'aether_auto_connect_ids';
 
 enum ConnectionStatus { disconnected, connecting, connected, error }
 
@@ -75,6 +78,12 @@ class VpsConnectionNotifier
       );
 
       await _client!.authenticated;
+      // Persist this vpsId so it auto-reconnects on next launch
+      final prefs = await SharedPreferences.getInstance();
+      final ids = prefs.getStringList(_kAutoConnectKey) ?? [];
+      if (!ids.contains(arg)) {
+        await prefs.setStringList(_kAutoConnectKey, [...ids, arg]);
+      }
       return VpsConnectionState(
         status: ConnectionStatus.connected,
         client: _client,
@@ -109,6 +118,10 @@ class VpsConnectionNotifier
 
   Future<void> disconnect() async {
     _disconnect();
+    // Remove from auto-connect list when user explicitly disconnects
+    final prefs = await SharedPreferences.getInstance();
+    final ids = prefs.getStringList(_kAutoConnectKey) ?? [];
+    await prefs.setStringList(_kAutoConnectKey, ids.where((id) => id != arg).toList());
     state = const AsyncValue.data(
       VpsConnectionState(status: ConnectionStatus.disconnected),
     );
@@ -147,3 +160,20 @@ final vpsConnectionProvider = AsyncNotifierProvider.family<
     VpsConnectionNotifier, VpsConnectionState, String>(
   VpsConnectionNotifier.new,
 );
+
+/// Runs once on startup — reconnects any VPS that was connected before the app closed.
+final autoConnectProvider = FutureProvider<void>((ref) async {
+  // Wait for the VPS list to load first
+  final vpsList = ref.watch(vpsListProvider);
+  if (vpsList.isEmpty) return;
+
+  final prefs = await SharedPreferences.getInstance();
+  final ids = prefs.getStringList(_kAutoConnectKey) ?? [];
+
+  for (final id in ids) {
+    // Only reconnect if this VPS still exists in the list
+    if (vpsList.any((v) => v.id == id)) {
+      ref.read(vpsConnectionProvider(id).notifier).connect();
+    }
+  }
+});

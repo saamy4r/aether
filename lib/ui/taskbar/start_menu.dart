@@ -48,13 +48,14 @@ class _StartMenuState extends ConsumerState<StartMenu> {
             blurSigma: AetherGlass.startMenuBlur,
             borderRadius: AetherGlass.startMenuRadius,
             child: ConstrainedBox(
-              constraints: const BoxConstraints(
-                maxHeight: AetherDimensions.startMenuMaxHeight,
+              constraints: BoxConstraints(
+                maxHeight: MediaQuery.sizeOf(context).height * 0.75,
               ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
                   // Header
                   const Padding(
                     padding: EdgeInsets.fromLTRB(12, 12, 12, 8),
@@ -277,6 +278,7 @@ class _StartMenuState extends ConsumerState<StartMenu> {
                 ],
               ),
             ),
+          ),
           ),
         ),
     );
