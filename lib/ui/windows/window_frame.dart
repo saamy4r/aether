@@ -22,6 +22,7 @@ class WindowFrame extends ConsumerStatefulWidget {
 class _WindowFrameState extends ConsumerState<WindowFrame> {
   Offset _dragDelta = Offset.zero;
   bool _isDragging = false;
+  bool _bodyDragEnabled = false;
 
   WindowState get ws => widget.windowState;
 
@@ -45,38 +46,49 @@ class _WindowFrameState extends ConsumerState<WindowFrame> {
     final x = _isDragging ? (ws.x + _dragDelta.dx) : ws.x;
     final y = _isDragging ? (ws.y + _dragDelta.dy) : ws.y;
 
+    void onPanStart(_) => setState(() => _isDragging = true);
+    void onPanUpdate(DragUpdateDetails d) =>
+        setState(() => _dragDelta += d.delta);
+    void onPanEnd(DragEndDetails _) {
+      ref.read(windowManagerProvider.notifier).moveWindow(
+        ws.windowId,
+        _dragDelta,
+        screen,
+        AetherDimensions.taskbarHeight,
+      );
+      setState(() {
+        _isDragging = false;
+        _dragDelta = Offset.zero;
+        _bodyDragEnabled = false;
+      });
+    }
+
     return Positioned(
       left: x,
       top: y,
       width: ws.width,
       height: ws.height,
       child: GestureDetector(
-        onTap: () => ref
-            .read(windowManagerProvider.notifier)
-            .focusWindow(ws.windowId),
+        onTap: () {
+          ref.read(windowManagerProvider.notifier).focusWindow(ws.windowId);
+          if (_bodyDragEnabled) setState(() => _bodyDragEnabled = false);
+        },
+        onDoubleTap: () => setState(() => _bodyDragEnabled = true),
+        onPanStart: _bodyDragEnabled ? onPanStart : null,
+        onPanUpdate: _bodyDragEnabled ? onPanUpdate : null,
+        onPanEnd: _bodyDragEnabled ? onPanEnd : null,
         child: GlassContainer(
           child: Column(
             children: [
-              // Draggable title bar
+              // Title bar — always draggable
               GestureDetector(
-                onPanStart: (_) => setState(() => _isDragging = true),
-                onPanUpdate: (d) =>
-                    setState(() => _dragDelta += d.delta),
-                onPanEnd: (_) {
-                  ref.read(windowManagerProvider.notifier).moveWindow(
-                    ws.windowId,
-                    _dragDelta,
-                    screen,
-                    AetherDimensions.taskbarHeight,
-                  );
-                  setState(() {
-                    _isDragging = false;
-                    _dragDelta = Offset.zero;
-                  });
-                },
+                onPanStart: onPanStart,
+                onPanUpdate: onPanUpdate,
+                onPanEnd: onPanEnd,
                 child: WindowTitleBar(
                   title: ws.title,
                   icon: _icon,
+                  dragging: _bodyDragEnabled,
                   onMinimize: () => ref
                       .read(windowManagerProvider.notifier)
                       .minimizeWindow(ws.windowId),

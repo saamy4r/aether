@@ -9,6 +9,7 @@ class WindowTitleBar extends StatelessWidget {
     required this.onMinimize,
     required this.onClose,
     this.trailing,
+    this.dragging = false,
   });
 
   final String title;
@@ -16,14 +17,17 @@ class WindowTitleBar extends StatelessWidget {
   final VoidCallback onMinimize;
   final VoidCallback onClose;
   final Widget? trailing;
+  final bool dragging;
 
   @override
   Widget build(BuildContext context) {
     return Container(
       height: 36,
-      decoration: const BoxDecoration(
-        color: AetherColors.titleBarBase,
-        borderRadius: BorderRadius.only(
+      decoration: BoxDecoration(
+        color: dragging
+            ? AetherColors.accent.withOpacity(0.15)
+            : AetherColors.titleBarBase,
+        borderRadius: const BorderRadius.only(
           topLeft: Radius.circular(AetherGlass.windowRadius),
           topRight: Radius.circular(AetherGlass.windowRadius),
         ),

@@ -38,12 +38,7 @@ class _StartMenuState extends ConsumerState<StartMenu> {
 
     return Align(
       alignment: Alignment.bottomLeft,
-      child: Padding(
-        padding: EdgeInsets.only(
-          left: 0,
-          bottom: AetherDimensions.taskbarHeight,
-        ),
-        child: SizedBox(
+      child: SizedBox(
           width: AetherDimensions.startMenuWidth,
           child: GlassContainer(
             blurSigma: AetherGlass.startMenuBlur,
@@ -228,7 +223,6 @@ class _StartMenuState extends ConsumerState<StartMenu> {
             ),
           ),
         ),
-      ),
     );
   }
 
