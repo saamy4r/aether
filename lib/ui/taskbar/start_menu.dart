@@ -5,6 +5,7 @@ import '../../core/constants/colors.dart';
 import '../../core/constants/dimensions.dart';
 import '../../core/constants/strings.dart';
 import '../../core/models/window_state.dart';
+import '../../core/services/credential_service.dart';
 import '../../providers/ui_settings_provider.dart';
 import '../../providers/vps_connection_provider.dart';
 import '../../providers/vps_list_provider.dart';
@@ -24,6 +25,8 @@ class StartMenu extends ConsumerStatefulWidget {
 
 class _StartMenuState extends ConsumerState<StartMenu> {
   String? _selectedVpsId;
+  String? _expandedVpsId;     // vpsId whose inline actions are showing
+  String? _expandedMenuLabel; // menu item label whose inline actions are showing
 
   @override
   Widget build(BuildContext context) {
@@ -76,63 +79,85 @@ class _StartMenuState extends ConsumerState<StartMenu> {
                       final conn = ref.watch(vpsConnectionProvider(v.id));
                       final isConnected = conn.valueOrNull?.isConnected == true;
                       final isConnecting = conn.isLoading;
-                      return Padding(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 12, vertical: 4),
-                        child: Row(
-                          children: [
-                            Icon(Icons.circle,
-                                size: 7,
-                                color: isConnected
-                                    ? AetherColors.accentTeal
-                                    : isConnecting
-                                        ? AetherColors.accentYellow
-                                        : AetherColors.textSecondary),
-                            const SizedBox(width: 6),
-                            Expanded(
-                              child: GestureDetector(
-                                onTap: isConnected
-                                    ? () => setState(
-                                        () => _selectedVpsId = v.id)
-                                    : null,
-                                child: Text(
-                                  v.label,
-                                  style: TextStyle(
-                                    color: isConnected
-                                        ? AetherColors.textPrimary
-                                        : AetherColors.textSecondary,
-                                    fontSize: 12,
+                      final isExpanded = _expandedVpsId == v.id;
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          GestureDetector(
+                            onTap: () => setState(() {
+                              _expandedVpsId = isExpanded ? null : null;
+                              if (isConnected) _selectedVpsId = v.id;
+                            }),
+                            onLongPress: () => setState(() =>
+                                _expandedVpsId = isExpanded ? null : v.id),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 12, vertical: 6),
+                              child: Row(
+                                children: [
+                                  Icon(Icons.circle,
+                                      size: 7,
+                                      color: isConnected
+                                          ? AetherColors.accentTeal
+                                          : isConnecting
+                                              ? AetherColors.accentYellow
+                                              : AetherColors.textSecondary),
+                                  const SizedBox(width: 6),
+                                  Expanded(
+                                    child: Text(
+                                      v.label,
+                                      style: TextStyle(
+                                        color: isConnected
+                                            ? AetherColors.textPrimary
+                                            : AetherColors.textSecondary,
+                                        fontSize: 12,
+                                      ),
+                                    ),
                                   ),
-                                ),
+                                  if (isConnecting)
+                                    const SizedBox(
+                                      width: 12,
+                                      height: 12,
+                                      child: CircularProgressIndicator(
+                                          strokeWidth: 1.5,
+                                          color: AetherColors.accent),
+                                    )
+                                  else if (isConnected)
+                                    GestureDetector(
+                                      onTap: () => ref
+                                          .read(vpsConnectionProvider(v.id).notifier)
+                                          .disconnect(),
+                                      child: const Icon(Icons.link_off,
+                                          size: 14,
+                                          color: AetherColors.textSecondary),
+                                    )
+                                  else
+                                    GestureDetector(
+                                      onTap: () => ref
+                                          .read(vpsConnectionProvider(v.id).notifier)
+                                          .connect(),
+                                      child: const Icon(Icons.link,
+                                          size: 14, color: AetherColors.accent),
+                                    ),
+                                ],
                               ),
                             ),
-                            if (isConnecting)
-                              const SizedBox(
-                                width: 12,
-                                height: 12,
-                                child: CircularProgressIndicator(
-                                    strokeWidth: 1.5,
-                                    color: AetherColors.accent),
-                              )
-                            else if (isConnected)
-                              GestureDetector(
-                                onTap: () => ref
-                                    .read(vpsConnectionProvider(v.id).notifier)
-                                    .disconnect(),
-                                child: const Icon(Icons.link_off,
-                                    size: 14,
-                                    color: AetherColors.textSecondary),
-                              )
-                            else
-                              GestureDetector(
-                                onTap: () => ref
-                                    .read(vpsConnectionProvider(v.id).notifier)
-                                    .connect(),
-                                child: const Icon(Icons.link,
-                                    size: 14, color: AetherColors.accent),
-                              ),
+                          ),
+                          if (isExpanded) ...[
+                            _InlineAction(
+                              icon: Icons.delete_outline,
+                              label: 'Delete VPS',
+                              color: AetherColors.accentRed,
+                              onTap: () async {
+                                setState(() => _expandedVpsId = null);
+                                await ref.read(vpsConnectionProvider(v.id).notifier).disconnect();
+                                await ref.read(vpsListProvider.notifier).remove(v.id);
+                                await CredentialService().deleteAllCredentials(v.id);
+                                widget.onClose();
+                              },
+                            ),
                           ],
-                        ),
+                        ],
                       );
                     }),
                     const Divider(color: AetherColors.glassBorder, height: 1),
@@ -176,17 +201,26 @@ class _StartMenuState extends ConsumerState<StartMenu> {
                     _MenuItem(
                       icon: Icons.terminal,
                       label: AetherStrings.terminal,
+                      expanded: _expandedMenuLabel == AetherStrings.terminal,
                       onTap: () => _open(context, WindowType.terminal),
+                      onLongPress: () => setState(() => _expandedMenuLabel =
+                          _expandedMenuLabel == AetherStrings.terminal ? null : AetherStrings.terminal),
                     ),
                     _MenuItem(
                       icon: Icons.folder,
                       label: AetherStrings.fileManager,
+                      expanded: _expandedMenuLabel == AetherStrings.fileManager,
                       onTap: () => _open(context, WindowType.fileManager),
+                      onLongPress: () => setState(() => _expandedMenuLabel =
+                          _expandedMenuLabel == AetherStrings.fileManager ? null : AetherStrings.fileManager),
                     ),
                     _MenuItem(
                       icon: Icons.smart_toy,
                       label: AetherStrings.dockerManager,
+                      expanded: _expandedMenuLabel == AetherStrings.dockerManager,
                       onTap: () => _open(context, WindowType.docker),
+                      onLongPress: () => setState(() => _expandedMenuLabel =
+                          _expandedMenuLabel == AetherStrings.dockerManager ? null : AetherStrings.dockerManager),
                     ),
                     const Divider(color: AetherColors.glassBorder, height: 1),
                   ],
@@ -200,14 +234,18 @@ class _StartMenuState extends ConsumerState<StartMenu> {
                     label: ref.watch(fullscreenProvider)
                         ? 'Exit Fullscreen'
                         : 'Fullscreen',
+                    expanded: _expandedMenuLabel == 'Fullscreen',
                     onTap: () {
                       ref.read(fullscreenProvider.notifier).toggle();
                       widget.onClose();
                     },
+                    onLongPress: () => setState(() => _expandedMenuLabel =
+                        _expandedMenuLabel == 'Fullscreen' ? null : 'Fullscreen'),
                   ),
                   _MenuItem(
                     icon: Icons.add,
                     label: AetherStrings.addVps,
+                    expanded: _expandedMenuLabel == AetherStrings.addVps,
                     onTap: () {
                       widget.onClose();
                       Navigator.push(
@@ -216,10 +254,13 @@ class _StartMenuState extends ConsumerState<StartMenu> {
                             builder: (_) => const AddVpsScreen()),
                       );
                     },
+                    onLongPress: () => setState(() => _expandedMenuLabel =
+                        _expandedMenuLabel == AetherStrings.addVps ? null : AetherStrings.addVps),
                   ),
                   _MenuItem(
                     icon: Icons.link_off,
                     label: AetherStrings.disconnectAll,
+                    expanded: _expandedMenuLabel == AetherStrings.disconnectAll,
                     onTap: () {
                       final vps = ref.read(vpsListProvider);
                       for (final v in vps) {
@@ -229,6 +270,8 @@ class _StartMenuState extends ConsumerState<StartMenu> {
                       }
                       widget.onClose();
                     },
+                    onLongPress: () => setState(() => _expandedMenuLabel =
+                        _expandedMenuLabel == AetherStrings.disconnectAll ? null : AetherStrings.disconnectAll),
                   ),
                   const SizedBox(height: 8),
                 ],
@@ -285,24 +328,72 @@ class _MenuItem extends StatelessWidget {
     required this.icon,
     required this.label,
     required this.onTap,
+    this.onLongPress,
+    this.expanded = false,
   });
   final IconData icon;
   final String label;
   final VoidCallback onTap;
+  final VoidCallback? onLongPress;
+  final bool expanded;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        InkWell(
+          onTap: onTap,
+          onLongPress: onLongPress,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            child: Row(
+              children: [
+                Icon(icon, size: 14, color: AetherColors.accent),
+                const SizedBox(width: 10),
+                Text(label,
+                    style: const TextStyle(
+                        color: AetherColors.textPrimary, fontSize: 13)),
+              ],
+            ),
+          ),
+        ),
+        if (expanded)
+          const _InlineAction(
+            icon: Icons.hourglass_empty,
+            label: 'No actions yet',
+            color: AetherColors.textSecondary,
+          ),
+      ],
+    );
+  }
+}
+
+class _InlineAction extends StatelessWidget {
+  const _InlineAction({
+    required this.icon,
+    required this.label,
+    this.color = AetherColors.textPrimary,
+    this.onTap,
+  });
+  final IconData icon;
+  final String label;
+  final Color color;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
     return InkWell(
       onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      child: Container(
+        color: AetherColors.glassBase,
+        padding: const EdgeInsets.fromLTRB(32, 7, 12, 7),
         child: Row(
           children: [
-            Icon(icon, size: 14, color: AetherColors.accent),
-            const SizedBox(width: 10),
+            Icon(icon, size: 12, color: color),
+            const SizedBox(width: 8),
             Text(label,
-                style: const TextStyle(
-                    color: AetherColors.textPrimary, fontSize: 13)),
+                style: TextStyle(color: color, fontSize: 12)),
           ],
         ),
       ),
