@@ -7,6 +7,7 @@ class WindowTitleBar extends StatelessWidget {
     required this.title,
     required this.icon,
     required this.onMinimize,
+    required this.onMaximize,
     required this.onClose,
     this.trailing,
     this.dragging = false,
@@ -15,6 +16,7 @@ class WindowTitleBar extends StatelessWidget {
   final String title;
   final IconData icon;
   final VoidCallback onMinimize;
+  final VoidCallback onMaximize;
   final VoidCallback onClose;
   final Widget? trailing;
   final bool dragging;
@@ -54,13 +56,19 @@ class WindowTitleBar extends StatelessWidget {
             onTap: onMinimize,
             color: AetherColors.accentYellow,
           ),
-          const SizedBox(width: 4),
+          const SizedBox(width: 8),
+          _TitleBarButton(
+            icon: Icons.crop_square,
+            onTap: onMaximize,
+            color: AetherColors.accentTeal,
+          ),
+          const SizedBox(width: 8),
           _TitleBarButton(
             icon: Icons.close,
             onTap: onClose,
             color: AetherColors.accentRed,
           ),
-          const SizedBox(width: 6),
+          const SizedBox(width: 8),
         ],
       ),
     );

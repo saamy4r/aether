@@ -53,6 +53,7 @@ class TerminalWindowContent extends ConsumerWidget {
           child: TerminalView(
             state.terminal,
             theme: _aetherTerminalTheme,
+            textStyle: const TerminalStyle(fontSize: 11),
             autofocus: true,
             backgroundOpacity: 0,
             keyboardType: TextInputType.visiblePassword,

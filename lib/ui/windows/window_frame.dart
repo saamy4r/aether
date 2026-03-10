@@ -23,6 +23,9 @@ class _WindowFrameState extends ConsumerState<WindowFrame> {
   Offset _dragDelta = Offset.zero;
   bool _isDragging = false;
   bool _bodyDragEnabled = false;
+  bool _isMaximized = false;
+  // Saved geometry before maximize
+  double? _savedX, _savedY, _savedW, _savedH;
 
   WindowState get ws => widget.windowState;
 
@@ -39,6 +42,42 @@ class _WindowFrameState extends ConsumerState<WindowFrame> {
     WindowType.fileManager => Icons.folder,
     WindowType.docker     => Icons.smart_toy,
   };
+
+  void _toggleMaximize(Size screen) {
+    if (_isMaximized) {
+      ref.read(windowManagerProvider.notifier).moveWindow(
+        ws.windowId,
+        Offset((_savedX ?? 0) - ws.x, (_savedY ?? 0) - ws.y),
+        screen,
+        AetherDimensions.taskbarHeight,
+      );
+      ref.read(windowManagerProvider.notifier).resizeWindow(
+        ws.windowId,
+        (_savedW ?? ws.width) - ws.width,
+        (_savedH ?? ws.height) - ws.height,
+        0, 0,
+      );
+      setState(() => _isMaximized = false);
+    } else {
+      _savedX = ws.x;
+      _savedY = ws.y;
+      _savedW = ws.width;
+      _savedH = ws.height;
+      ref.read(windowManagerProvider.notifier).moveWindow(
+        ws.windowId,
+        Offset(-ws.x, -ws.y),
+        screen,
+        AetherDimensions.taskbarHeight,
+      );
+      ref.read(windowManagerProvider.notifier).resizeWindow(
+        ws.windowId,
+        screen.width - ws.width,
+        screen.height - AetherDimensions.taskbarHeight - ws.height,
+        0, 0,
+      );
+      setState(() => _isMaximized = true);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -92,6 +131,7 @@ class _WindowFrameState extends ConsumerState<WindowFrame> {
                   onMinimize: () => ref
                       .read(windowManagerProvider.notifier)
                       .minimizeWindow(ws.windowId),
+                  onMaximize: () => _toggleMaximize(screen),
                   onClose: () => ref
                       .read(windowManagerProvider.notifier)
                       .closeWindow(ws.windowId),
