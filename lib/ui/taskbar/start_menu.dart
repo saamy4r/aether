@@ -5,6 +5,7 @@ import '../../core/constants/colors.dart';
 import '../../core/constants/dimensions.dart';
 import '../../core/constants/strings.dart';
 import '../../core/models/window_state.dart';
+import '../../providers/ui_settings_provider.dart';
 import '../../providers/vps_connection_provider.dart';
 import '../../providers/vps_list_provider.dart';
 import '../../providers/window_manager_provider.dart';
@@ -192,6 +193,18 @@ class _StartMenuState extends ConsumerState<StartMenu> {
 
                   // System section
                   const _SectionLabel('System'),
+                  _MenuItem(
+                    icon: ref.watch(fullscreenProvider)
+                        ? Icons.fullscreen_exit
+                        : Icons.fullscreen,
+                    label: ref.watch(fullscreenProvider)
+                        ? 'Exit Fullscreen'
+                        : 'Fullscreen',
+                    onTap: () {
+                      ref.read(fullscreenProvider.notifier).toggle();
+                      widget.onClose();
+                    },
+                  ),
                   _MenuItem(
                     icon: Icons.add,
                     label: AetherStrings.addVps,

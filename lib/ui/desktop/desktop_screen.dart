@@ -4,12 +4,14 @@ import '../../core/constants/colors.dart';
 import '../../core/constants/dimensions.dart';
 import '../../core/models/window_state.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/ui_settings_provider.dart';
 import '../../providers/vps_list_provider.dart';
 import '../../providers/window_manager_provider.dart';
 import '../lock/lock_screen.dart';
 import '../taskbar/taskbar.dart';
 import '../windows/window_frame.dart';
 import 'app_launcher_icon.dart';
+import 'desktop_wallpaper.dart';
 import 'vps_stats_widget.dart';
 
 class DesktopScreen extends ConsumerWidget {
@@ -19,22 +21,26 @@ class DesktopScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final windows = ref.watch(windowManagerProvider);
     final vpsList = ref.watch(vpsListProvider);
-    final locked  = ref.watch(authProvider);
+    final locked = ref.watch(authProvider);
+    final fullscreen = ref.watch(fullscreenProvider);
 
     final sorted = [...windows]
       ..sort((a, b) => a.zIndex.compareTo(b.zIndex));
 
     return Scaffold(
       backgroundColor: AetherColors.background,
-      body: Stack(
+      body: SafeArea(
+        top: !fullscreen,
+        bottom: false,
+        child: Stack(
         children: [
-          // Layer 0 — Background gradient
-          const _DesktopBackground(),
+          // Layer 0 — Wallpaper
+          const DesktopWallpaper(),
 
-          // Layer 1 — App launcher icons (bottom-left column)
+          // Layer 1 — App launcher icons (top-left column)
           Positioned(
             left: 16,
-            bottom: AetherDimensions.taskbarHeight + 16,
+            top: 16,
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: const [
@@ -48,12 +54,6 @@ class DesktopScreen extends ConsumerWidget {
                   icon: Icons.folder,
                   label: 'Files',
                   windowType: WindowType.fileManager,
-                ),
-                SizedBox(height: AetherDimensions.iconSpacing),
-                AppLauncherIcon(
-                  icon: Icons.smart_toy,
-                  label: 'Docker',
-                  windowType: WindowType.docker,
                 ),
               ],
             ),
@@ -91,27 +91,8 @@ class DesktopScreen extends ConsumerWidget {
           if (locked) const LockScreen(),
         ],
       ),
-    );
-  }
-}
-
-class _DesktopBackground extends StatelessWidget {
-  const _DesktopBackground();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: const BoxDecoration(
-        gradient: RadialGradient(
-          center: Alignment(0, -0.3),
-          radius: 1.4,
-          colors: [
-            Color(0xFF1E2D45),
-            AetherColors.background,
-            Color(0xFF0D1520),
-          ],
-        ),
       ),
     );
   }
 }
+
