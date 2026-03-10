@@ -73,7 +73,76 @@ class _StartMenuState extends ConsumerState<StartMenu> {
                   ),
                   const Divider(color: AetherColors.glassBorder, height: 1),
 
-                  // VPS selector
+                  // VPS list with connect/disconnect
+                  if (vpsList.isNotEmpty) ...[
+                    const _SectionLabel('Servers'),
+                    ...vpsList.map((v) {
+                      final conn = ref.watch(vpsConnectionProvider(v.id));
+                      final isConnected = conn.valueOrNull?.isConnected == true;
+                      final isConnecting = conn.isLoading;
+                      return Padding(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 4),
+                        child: Row(
+                          children: [
+                            Icon(Icons.circle,
+                                size: 7,
+                                color: isConnected
+                                    ? AetherColors.accentTeal
+                                    : isConnecting
+                                        ? AetherColors.accentYellow
+                                        : AetherColors.textSecondary),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: GestureDetector(
+                                onTap: isConnected
+                                    ? () => setState(
+                                        () => _selectedVpsId = v.id)
+                                    : null,
+                                child: Text(
+                                  v.label,
+                                  style: TextStyle(
+                                    color: isConnected
+                                        ? AetherColors.textPrimary
+                                        : AetherColors.textSecondary,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            if (isConnecting)
+                              const SizedBox(
+                                width: 12,
+                                height: 12,
+                                child: CircularProgressIndicator(
+                                    strokeWidth: 1.5,
+                                    color: AetherColors.accent),
+                              )
+                            else if (isConnected)
+                              GestureDetector(
+                                onTap: () => ref
+                                    .read(vpsConnectionProvider(v.id).notifier)
+                                    .disconnect(),
+                                child: const Icon(Icons.link_off,
+                                    size: 14,
+                                    color: AetherColors.textSecondary),
+                              )
+                            else
+                              GestureDetector(
+                                onTap: () => ref
+                                    .read(vpsConnectionProvider(v.id).notifier)
+                                    .connect(),
+                                child: const Icon(Icons.link,
+                                    size: 14, color: AetherColors.accent),
+                              ),
+                          ],
+                        ),
+                      );
+                    }),
+                    const Divider(color: AetherColors.glassBorder, height: 1),
+                  ],
+
+                  // VPS selector for tools (connected only)
                   if (connected.isNotEmpty) ...[
                     Padding(
                       padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),

@@ -2,13 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/constants/colors.dart';
 import '../../core/constants/dimensions.dart';
+import '../../core/models/window_state.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/vps_list_provider.dart';
 import '../../providers/window_manager_provider.dart';
 import '../lock/lock_screen.dart';
 import '../taskbar/taskbar.dart';
 import '../windows/window_frame.dart';
-import 'desktop_icon.dart';
+import 'app_launcher_icon.dart';
+import 'vps_stats_widget.dart';
 
 class DesktopScreen extends ConsumerWidget {
   const DesktopScreen({super.key});
@@ -29,27 +31,55 @@ class DesktopScreen extends ConsumerWidget {
           // Layer 0 — Background gradient
           const _DesktopBackground(),
 
-          // Layer 1 — Desktop icons
-          Positioned.fill(
-            bottom: AetherDimensions.taskbarHeight,
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Wrap(
-                spacing: AetherDimensions.iconSpacing,
-                runSpacing: AetherDimensions.iconSpacing,
-                children: vpsList
-                    .map((vps) => DesktopIcon(vps: vps))
-                    .toList(),
-              ),
+          // Layer 1 — App launcher icons (bottom-left column)
+          Positioned(
+            left: 16,
+            bottom: AetherDimensions.taskbarHeight + 16,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: const [
+                AppLauncherIcon(
+                  icon: Icons.terminal,
+                  label: 'Terminal',
+                  windowType: WindowType.terminal,
+                ),
+                SizedBox(height: AetherDimensions.iconSpacing),
+                AppLauncherIcon(
+                  icon: Icons.folder,
+                  label: 'Files',
+                  windowType: WindowType.fileManager,
+                ),
+                SizedBox(height: AetherDimensions.iconSpacing),
+                AppLauncherIcon(
+                  icon: Icons.smart_toy,
+                  label: 'Docker',
+                  windowType: WindowType.docker,
+                ),
+              ],
             ),
           ),
 
-          // Layer 2 — Floating windows (z-index sorted)
+          // Layer 2 — VPS live stats widgets (top-right area)
+          Positioned(
+            top: 16,
+            right: 16,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: vpsList
+                  .map((vps) => Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: VpsStatsWidget(vps: vps),
+                      ))
+                  .toList(),
+            ),
+          ),
+
+          // Layer 3 — Floating windows (z-index sorted)
           ...sorted
               .where((w) => !w.isMinimized)
               .map((w) => WindowFrame(windowState: w)),
 
-          // Layer 3 — Taskbar (always on top)
+          // Layer 4 — Taskbar (always on top)
           const Positioned(
             bottom: 0,
             left: 0,
@@ -57,7 +87,7 @@ class DesktopScreen extends ConsumerWidget {
             child: Taskbar(),
           ),
 
-          // Layer 4 — Lock screen overlay
+          // Layer 5 — Lock screen overlay
           if (locked) const LockScreen(),
         ],
       ),

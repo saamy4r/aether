@@ -387,7 +387,10 @@ class _AddVpsScreenState extends ConsumerState<AddVpsScreen> {
     } else {
       await ref.read(vpsListProvider.notifier).add(vps);
     }
-    if (mounted) Navigator.pop(context);
+    if (mounted) {
+      Navigator.pop(context);
+      ref.read(vpsConnectionProvider(id).notifier).connect();
+    }
   }
 
   Future<void> _delete() async {
