@@ -49,5 +49,5 @@ app.*.map.json
 .flutter-plugins
 
 # Unused platform targets — Aether targets Android, iOS, and Linux only
-macos/
-windows/
+/macos/
+/windows/

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:typed_data';
 import 'package:dartssh2/dartssh2.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -56,13 +57,16 @@ class TerminalNotifier
       );
 
       _stdoutSub = _session!.stdout.listen(
-        (data) => terminal.write(String.fromCharCodes(data)),
+        (data) => terminal.write(utf8.decode(data, allowMalformed: true)),
         onDone: _onSessionDone,
       );
 
       terminal.onOutput = (data) {
-        _session?.stdin.add(Uint8List.fromList(data.codeUnits));
+        _session?.stdin.add(Uint8List.fromList(utf8.encode(data)));
       };
+
+      // Request a thin beam cursor (DECSCUSR 6 = steady bar)
+      terminal.write('\x1b[6 q');
 
       state = TerminalState(
         terminal: terminal,
