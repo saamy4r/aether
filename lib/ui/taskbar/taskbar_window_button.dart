@@ -14,6 +14,8 @@ class TaskbarWindowButton extends ConsumerWidget {
     WindowType.terminal    => Icons.terminal,
     WindowType.fileManager => Icons.folder,
     WindowType.docker      => Icons.smart_toy,
+    WindowType.dockerLogs  => Icons.article,
+    WindowType.dockerShell => Icons.terminal,
   };
 
   @override

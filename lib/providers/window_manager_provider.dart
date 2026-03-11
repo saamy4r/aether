@@ -12,8 +12,9 @@ class WindowManagerNotifier extends Notifier<List<WindowState>> {
       state.isEmpty ? 1 : state.map((w) => w.zIndex).reduce(max) + 1;
 
   void openWindow(WindowState window) {
-    // Avoid duplicating non-terminal windows per vpsId
-    if (window.type != WindowType.terminal) {
+    // terminal, dockerLogs, dockerShell allow multiple instances
+    const multiInstance = {WindowType.terminal, WindowType.dockerLogs, WindowType.dockerShell};
+    if (!multiInstance.contains(window.type)) {
       final existing = state.where(
         (w) => w.type == window.type && w.vpsId == window.vpsId,
       );
@@ -93,12 +94,15 @@ class WindowManagerNotifier extends Notifier<List<WindowState>> {
     required WindowType type,
     required String title,
     required Size screen,
+    String? containerId,
   }) {
     final (w, h) = switch (type) {
-      WindowType.dashboard  => (AetherDimensions.dashboardW, AetherDimensions.dashboardH),
-      WindowType.terminal   => (AetherDimensions.terminalW,  AetherDimensions.terminalH),
+      WindowType.dashboard   => (AetherDimensions.dashboardW,   AetherDimensions.dashboardH),
+      WindowType.terminal    => (AetherDimensions.terminalW,    AetherDimensions.terminalH),
       WindowType.fileManager => (AetherDimensions.fileManagerW, AetherDimensions.fileManagerH),
-      WindowType.docker     => (AetherDimensions.dockerW,   AetherDimensions.dockerH),
+      WindowType.docker      => (AetherDimensions.dockerW,      AetherDimensions.dockerH),
+      WindowType.dockerLogs  => (AetherDimensions.dockerLogsW,  AetherDimensions.dockerLogsH),
+      WindowType.dockerShell => (AetherDimensions.dockerShellW, AetherDimensions.dockerShellH),
     };
     return WindowState(
       windowId: windowId,
@@ -112,6 +116,7 @@ class WindowManagerNotifier extends Notifier<List<WindowState>> {
       height: h.clamp(0.0, screen.height - AetherDimensions.taskbarHeight),
       zIndex: 1,
       title: title,
+      containerId: containerId,
     );
   }
 }

@@ -28,6 +28,9 @@ abstract final class SshCommands {
   static String dockerStart(String id)   => 'docker start $id';
   static String dockerStop(String id)    => 'docker stop $id';
   static String dockerRestart(String id) => 'docker restart $id';
+  static String dockerPause(String id)   => 'docker pause $id';
+  static String dockerUnpause(String id) => 'docker unpause $id';
   static String dockerRemove(String id)  => 'docker rm -f $id';
   static String dockerLogs(String id)    => 'docker logs --follow --tail=100 $id';
+  static const String dockerImagePrune   = 'docker image prune -f';
 }

@@ -57,7 +57,7 @@ class DockerNotifier extends FamilyNotifier<DockerState, String> {
       state = state.copyWith(isAvailable: true);
       await _refresh();
       _timer = Timer.periodic(
-        const Duration(seconds: 15),
+        const Duration(seconds: 10),
         (_) => _refresh(),
       );
     } catch (e) {
@@ -96,6 +96,22 @@ class DockerNotifier extends FamilyNotifier<DockerState, String> {
       await _refresh();
     } catch (e) {
       state = state.copyWith(errorMessage: 'Action failed: $e');
+    }
+  }
+
+  Future<void> pauseContainer(String id) =>
+      containerAction(id, SshCommands.dockerPause(id));
+
+  Future<void> unpauseContainer(String id) =>
+      containerAction(id, SshCommands.dockerUnpause(id));
+
+  Future<void> pruneImages() async {
+    final notifier = ref.read(vpsConnectionProvider(vpsId).notifier);
+    try {
+      await notifier.exec(SshCommands.dockerImagePrune);
+      await _refresh();
+    } catch (e) {
+      state = state.copyWith(errorMessage: 'Prune failed: $e');
     }
   }
 

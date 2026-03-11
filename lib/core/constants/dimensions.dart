@@ -27,6 +27,16 @@ abstract final class AetherDimensions {
   static const double dockerMinW = 380.0;
   static const double dockerMinH = 300.0;
 
+  static const double dockerLogsW = 560.0;
+  static const double dockerLogsH = 380.0;
+  static const double dockerLogsMinW = 400.0;
+  static const double dockerLogsMinH = 240.0;
+
+  static const double dockerShellW = 520.0;
+  static const double dockerShellH = 360.0;
+  static const double dockerShellMinW = 380.0;
+  static const double dockerShellMinH = 240.0;
+
   // Desktop icon grid
   static const double iconSize       = 72.0;
   static const double iconLabelSize  = 12.0;

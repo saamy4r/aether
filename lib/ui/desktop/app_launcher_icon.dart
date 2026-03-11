@@ -83,6 +83,8 @@ class AppLauncherIcon extends ConsumerWidget {
       WindowType.fileManager => 'Files — ${connectedVps.label}',
       WindowType.docker      => 'Docker — ${connectedVps.label}',
       WindowType.dashboard   => 'Dashboard — ${connectedVps.label}',
+      WindowType.dockerLogs  => 'Logs',
+      WindowType.dockerShell => 'Shell',
     };
 
     ref.read(windowManagerProvider.notifier).openWindow(

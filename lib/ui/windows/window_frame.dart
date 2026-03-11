@@ -10,6 +10,7 @@ import 'dashboard/dashboard_window.dart';
 import 'terminal/terminal_window.dart';
 import 'file_manager/file_manager_window.dart';
 import 'docker/docker_window.dart';
+import 'docker/docker_logs_window.dart';
 
 class WindowFrame extends ConsumerStatefulWidget {
   const WindowFrame({super.key, required this.windowState});
@@ -30,17 +31,21 @@ class _WindowFrameState extends ConsumerState<WindowFrame> {
   WindowState get ws => widget.windowState;
 
   (double minW, double minH) get _minSize => switch (ws.type) {
-    WindowType.dashboard  => (AetherDimensions.dashboardMinW, AetherDimensions.dashboardMinH),
-    WindowType.terminal   => (AetherDimensions.terminalMinW,  AetherDimensions.terminalMinH),
+    WindowType.dashboard   => (AetherDimensions.dashboardMinW,   AetherDimensions.dashboardMinH),
+    WindowType.terminal    => (AetherDimensions.terminalMinW,    AetherDimensions.terminalMinH),
     WindowType.fileManager => (AetherDimensions.fileManagerMinW, AetherDimensions.fileManagerMinH),
-    WindowType.docker     => (AetherDimensions.dockerMinW,    AetherDimensions.dockerMinH),
+    WindowType.docker      => (AetherDimensions.dockerMinW,      AetherDimensions.dockerMinH),
+    WindowType.dockerLogs  => (AetherDimensions.dockerLogsMinW,  AetherDimensions.dockerLogsMinH),
+    WindowType.dockerShell => (AetherDimensions.dockerShellMinW, AetherDimensions.dockerShellMinH),
   };
 
   IconData get _icon => switch (ws.type) {
-    WindowType.dashboard  => Icons.monitor_heart,
-    WindowType.terminal   => Icons.terminal,
+    WindowType.dashboard   => Icons.monitor_heart,
+    WindowType.terminal    => Icons.terminal,
     WindowType.fileManager => Icons.folder,
-    WindowType.docker     => Icons.smart_toy,
+    WindowType.docker      => Icons.smart_toy,
+    WindowType.dockerLogs  => Icons.article,
+    WindowType.dockerShell => Icons.terminal,
   };
 
   void _toggleMaximize(Size screen) {
@@ -152,11 +157,19 @@ class _WindowFrameState extends ConsumerState<WindowFrame> {
   }
 
   Widget _buildContent() => switch (ws.type) {
-    WindowType.dashboard  => DashboardWindow(vpsId: ws.vpsId),
-    WindowType.terminal   => TerminalWindowContent(
+    WindowType.dashboard   => DashboardWindow(vpsId: ws.vpsId),
+    WindowType.terminal    => TerminalWindowContent(
         windowId: ws.windowId, vpsId: ws.vpsId),
     WindowType.fileManager => FileManagerWindowContent(vpsId: ws.vpsId),
-    WindowType.docker     => DockerWindowContent(vpsId: ws.vpsId),
+    WindowType.docker      => DockerWindowContent(vpsId: ws.vpsId),
+    WindowType.dockerLogs  => DockerLogsWindowContent(
+        windowId: ws.windowId,
+        containerId: ws.containerId!,
+        vpsId: ws.vpsId),
+    WindowType.dockerShell => DockerShellWindowContent(
+        windowId: ws.windowId,
+        containerId: ws.containerId!,
+        vpsId: ws.vpsId),
   };
 }
 

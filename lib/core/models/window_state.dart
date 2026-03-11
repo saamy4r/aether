@@ -1,6 +1,6 @@
 import 'package:flutter/foundation.dart';
 
-enum WindowType { dashboard, terminal, fileManager, docker }
+enum WindowType { dashboard, terminal, fileManager, docker, dockerLogs, dockerShell }
 
 @immutable
 class WindowState {
@@ -15,6 +15,7 @@ class WindowState {
     required this.zIndex,
     this.isMinimized = false,
     this.title = '',
+    this.containerId,
   });
 
   final String windowId;
@@ -27,6 +28,7 @@ class WindowState {
   final int zIndex;
   final bool isMinimized;
   final String title;
+  final String? containerId;
 
   WindowState copyWith({
     double? x,
@@ -47,5 +49,6 @@ class WindowState {
     zIndex: zIndex ?? this.zIndex,
     isMinimized: isMinimized ?? this.isMinimized,
     title: title ?? this.title,
+    containerId: containerId,
   );
 }

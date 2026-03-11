@@ -336,6 +336,8 @@ class _StartMenuState extends ConsumerState<StartMenu> {
       WindowType.fileManager => 'Files — ${vps.label}',
       WindowType.docker      => 'Docker — ${vps.label}',
       WindowType.dashboard   => 'Dashboard — ${vps.label}',
+      WindowType.dockerLogs  => 'Logs',
+      WindowType.dockerShell => 'Shell',
     };
     ref.read(windowManagerProvider.notifier).openWindow(
       WindowManagerNotifier.makeWindow(
