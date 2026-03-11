@@ -94,9 +94,23 @@ class FileManagerNotifier extends FamilyAsyncNotifier<FileManagerState, String> 
 
   Future<String> _execSsh(String cmd) async {
     final session = await _sshClient!.execute(cmd);
-    final out = await session.stdout.toList();
-    await session.done;
-    return utf8.decode(out.expand((b) => b).toList(), allowMalformed: true);
+    final outBytes = <List<int>>[];
+    final errBytes = <List<int>>[];
+    await Future.wait([
+      session.stdout.forEach(outBytes.add),
+      session.stderr.forEach(errBytes.add),
+      session.done,
+    ]);
+    final exitCode = session.exitCode ?? 0;
+    if (exitCode != 0) {
+      final err = utf8.decode(
+          errBytes.expand((b) => b).toList(),
+          allowMalformed: true).trim();
+      throw Exception(
+          err.isNotEmpty ? err : 'Command failed (exit $exitCode)');
+    }
+    return utf8.decode(
+        outBytes.expand((b) => b).toList(), allowMalformed: true);
   }
 
   Future<FileManagerState> _listDir(String path) async {
@@ -363,9 +377,23 @@ class FileManagerNotifier extends FamilyAsyncNotifier<FileManagerState, String> 
   Future<void> compressToZip(List<String> names, String archiveName) async {
     final current = state.valueOrNull;
     if (current == null || _sshClient == null) return;
+    final dir = current.currentPath;
+    final files = names.map((n) => '"$n"').join(' ');
     try {
-      final files = names.map((n) => '"$n"').join(' ');
-      await _execSsh('cd "${current.currentPath}" && zip "$archiveName" $files');
+      // Try zip first; fall back to python3 zipfile if zip isn't installed
+      try {
+        await _execSsh('cd "$dir" && zip -r "$archiveName" $files');
+      } catch (_) {
+        // zip not available — use python3 as fallback
+        final pyFiles = names.map((n) => "'$n'").join(', ');
+        await _execSsh(
+          'cd "$dir" && python3 -c "'
+          'import zipfile, os; '
+          'z = zipfile.ZipFile(\\"$archiveName\\", \\"w\\", zipfile.ZIP_DEFLATED); '
+          '[z.write(f) for f in [$pyFiles]]; '
+          'z.close()"',
+        );
+      }
       await refresh();
     } catch (e) {
       state = AsyncValue.data(current.copyWith(
