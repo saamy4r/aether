@@ -36,6 +36,26 @@ class _TerminalWindowContentState extends ConsumerState<TerminalWindowContent> {
     });
   }
 
+  KeyEventResult _handleKeyEvent(FocusNode _, KeyEvent event) {
+    if (event is! KeyDownEvent && event is! KeyRepeatEvent) {
+      return KeyEventResult.ignored;
+    }
+    if (!HardwareKeyboard.instance.isControlPressed) {
+      return KeyEventResult.ignored;
+    }
+    if (event.logicalKey == LogicalKeyboardKey.equal ||
+        event.logicalKey == LogicalKeyboardKey.numpadAdd) {
+      _zoom(1);
+      return KeyEventResult.handled;
+    }
+    if (event.logicalKey == LogicalKeyboardKey.minus ||
+        event.logicalKey == LogicalKeyboardKey.numpadSubtract) {
+      _zoom(-1);
+      return KeyEventResult.handled;
+    }
+    return KeyEventResult.ignored;
+  }
+
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(
@@ -52,14 +72,17 @@ class _TerminalWindowContentState extends ConsumerState<TerminalWindowContent> {
       },
     );
 
-    final terminalView = TerminalView(
-      state.terminal,
-      theme: _aetherTerminalTheme,
-      textStyle: TerminalStyle(fontSize: _fontSize),
-      autofocus: true,
-      backgroundOpacity: 0,
-      keyboardType: TextInputType.visiblePassword,
-      onSecondaryTapDown: (_, __) {},
+    final terminalView = Focus(
+      onKeyEvent: _handleKeyEvent,
+      child: TerminalView(
+        state.terminal,
+        theme: _aetherTerminalTheme,
+        textStyle: TerminalStyle(fontSize: _fontSize),
+        autofocus: true,
+        backgroundOpacity: 0,
+        keyboardType: TextInputType.visiblePassword,
+        onSecondaryTapDown: (_, __) {},
+      ),
     );
 
     return Column(
@@ -81,26 +104,35 @@ class _TerminalWindowContentState extends ConsumerState<TerminalWindowContent> {
             minHeight: 2,
           ),
         Expanded(
-          // Ctrl+scroll on desktop
-          child: Listener(
-            onPointerSignal: (event) {
-              if (event is PointerScrollEvent &&
-                  HardwareKeyboard.instance.isControlPressed) {
-                _zoom(event.scrollDelta.dy < 0 ? 1 : -1);
-              }
-            },
-            // Pinch-to-zoom on mobile
-            child: GestureDetector(
-              onScaleStart: (_) => _scaleStart = _fontSize,
-              onScaleUpdate: (details) {
-                if (details.pointerCount < 2) return;
-                setState(() {
-                  _fontSize = (_scaleStart * details.scale)
-                      .clamp(_minFontSize, _maxFontSize);
-                });
-              },
-              child: terminalView,
-            ),
+          child: Stack(
+            children: [
+              // Pinch-to-zoom on mobile
+              GestureDetector(
+                onScaleStart: (_) => _scaleStart = _fontSize,
+                onScaleUpdate: (details) {
+                  if (details.pointerCount < 2) return;
+                  setState(() {
+                    _fontSize = (_scaleStart * details.scale)
+                        .clamp(_minFontSize, _maxFontSize);
+                  });
+                },
+                child: terminalView,
+              ),
+              // Ctrl+scroll zoom overlay — positioned on top so it catches
+              // scroll events before TerminalView consumes them
+              Positioned.fill(
+                child: Listener(
+                  behavior: HitTestBehavior.translucent,
+                  onPointerSignal: (event) {
+                    if (event is PointerScrollEvent &&
+                        HardwareKeyboard.instance.isControlPressed) {
+                      _zoom(event.scrollDelta.dy < 0 ? 1 : -1);
+                    }
+                  },
+                  child: const SizedBox.expand(),
+                ),
+              ),
+            ],
           ),
         ),
         _MobileKeyboardToolbar(terminal: state.terminal),
