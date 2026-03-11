@@ -1,7 +1,6 @@
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:path_provider/path_provider.dart';
 import '../../../core/constants/colors.dart';
 import '../../../core/models/sftp_entry.dart';
 import '../../../providers/file_manager_provider.dart';
@@ -408,8 +407,10 @@ class _EntryTile extends StatelessWidget {
       case 'rename':
         _showRenameDialog(context, entry.name, notifier);
       case 'download':
-        final dir = await getDownloadsDirectory();
-        notifier.download(entry.name, dir?.path ?? '.');
+        final dir = await FilePicker.platform.getDirectoryPath(
+          dialogTitle: 'Save "${entry.name}" to…',
+        );
+        if (dir != null) notifier.download(entry.name, dir);
       case 'extract':
         notifier.extractZip(entry.name);
       case 'compress':
@@ -505,8 +506,10 @@ class _EntryGridCell extends StatelessWidget {
       case 'rename':
         _showRenameDialog(context, entry.name, notifier);
       case 'download':
-        final dir = await getDownloadsDirectory();
-        notifier.download(entry.name, dir?.path ?? '.');
+        final dir = await FilePicker.platform.getDirectoryPath(
+          dialogTitle: 'Save "${entry.name}" to…',
+        );
+        if (dir != null) notifier.download(entry.name, dir);
       case 'extract':
         notifier.extractZip(entry.name);
       case 'compress':
