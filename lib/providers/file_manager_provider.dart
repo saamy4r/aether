@@ -55,7 +55,7 @@ class FileManagerNotifier extends FamilyAsyncNotifier<FileManagerState, String> 
   Future<FileManagerState> build(String arg) async {
     ref.onDispose(_cleanup);
     await _openSftp();
-    final home = await _resolvePath('~');
+    final home = await _resolveHome();
     return _listDir(home);
   }
 
@@ -66,12 +66,16 @@ class FileManagerNotifier extends FamilyAsyncNotifier<FileManagerState, String> 
     _sftp = await client.sftp();
   }
 
-  Future<String> _resolvePath(String path) async {
+  Future<String> _resolveHome() async {
     try {
-      return await _sftp!.absolute(path);
-    } catch (_) {
-      return '/';
-    }
+      final home = (await _execSsh('echo \$HOME')).trim();
+      if (home.isNotEmpty && home.startsWith('/')) return home;
+    } catch (_) {}
+    try {
+      final pwd = (await _execSsh('pwd')).trim();
+      if (pwd.isNotEmpty && pwd.startsWith('/')) return pwd;
+    } catch (_) {}
+    return '/';
   }
 
   Future<String> _execSsh(String cmd) async {
