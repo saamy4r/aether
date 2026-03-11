@@ -98,7 +98,6 @@ class DockerWindowContent extends ConsumerWidget {
             unselectedLabelColor: AetherColors.textSecondary,
             indicatorColor: AetherColors.accent,
             labelStyle: TextStyle(fontSize: 12),
-            tabAlignment: TabAlignment.start,
           ),
           Expanded(
             child: TabBarView(

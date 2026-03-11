@@ -51,3 +51,6 @@ app.*.map.json
 # Unused platform targets — Aether targets Android, iOS, and Linux only
 /macos/
 /windows/
+
+# Claude Code local project data
+.claude/
