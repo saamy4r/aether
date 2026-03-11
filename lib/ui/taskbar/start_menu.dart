@@ -256,6 +256,16 @@ class _StartMenuState extends ConsumerState<StartMenu> {
                       onSecondaryTap: () => setState(() => _expandedMenuLabel =
                           _expandedMenuLabel == AetherStrings.dockerManager ? null : AetherStrings.dockerManager),
                     ),
+                    _MenuItem(
+                      icon: Icons.security,
+                      label: AetherStrings.firewallManager,
+                      expanded: _expandedMenuLabel == AetherStrings.firewallManager,
+                      onTap: () => _open(context, WindowType.firewall),
+                      onLongPress: () => setState(() => _expandedMenuLabel =
+                          _expandedMenuLabel == AetherStrings.firewallManager ? null : AetherStrings.firewallManager),
+                      onSecondaryTap: () => setState(() => _expandedMenuLabel =
+                          _expandedMenuLabel == AetherStrings.firewallManager ? null : AetherStrings.firewallManager),
+                    ),
                     const Divider(color: AetherColors.glassBorder, height: 1),
                   ],
 
@@ -338,6 +348,7 @@ class _StartMenuState extends ConsumerState<StartMenu> {
       WindowType.dashboard   => 'Dashboard — ${vps.label}',
       WindowType.dockerLogs  => 'Logs',
       WindowType.dockerShell => 'Shell',
+      WindowType.firewall    => 'Firewall — ${vps.label}',
     };
     ref.read(windowManagerProvider.notifier).openWindow(
       WindowManagerNotifier.makeWindow(

@@ -11,6 +11,7 @@ import 'terminal/terminal_window.dart';
 import 'file_manager/file_manager_window.dart';
 import 'docker/docker_window.dart';
 import 'docker/docker_logs_window.dart';
+import 'firewall/firewall_window.dart';
 
 class WindowFrame extends ConsumerStatefulWidget {
   const WindowFrame({super.key, required this.windowState});
@@ -37,6 +38,7 @@ class _WindowFrameState extends ConsumerState<WindowFrame> {
     WindowType.docker      => (AetherDimensions.dockerMinW,      AetherDimensions.dockerMinH),
     WindowType.dockerLogs  => (AetherDimensions.dockerLogsMinW,  AetherDimensions.dockerLogsMinH),
     WindowType.dockerShell => (AetherDimensions.dockerShellMinW, AetherDimensions.dockerShellMinH),
+    WindowType.firewall    => (AetherDimensions.firewallMinW,    AetherDimensions.firewallMinH),
   };
 
   IconData get _icon => switch (ws.type) {
@@ -46,6 +48,7 @@ class _WindowFrameState extends ConsumerState<WindowFrame> {
     WindowType.docker      => Icons.smart_toy,
     WindowType.dockerLogs  => Icons.article,
     WindowType.dockerShell => Icons.terminal,
+    WindowType.firewall    => Icons.security,
   };
 
   void _toggleMaximize(Size screen) {
@@ -170,6 +173,7 @@ class _WindowFrameState extends ConsumerState<WindowFrame> {
         windowId: ws.windowId,
         containerId: ws.containerId!,
         vpsId: ws.vpsId),
+    WindowType.firewall    => FirewallWindowContent(vpsId: ws.vpsId),
   };
 }
 

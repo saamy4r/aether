@@ -33,4 +33,16 @@ abstract final class SshCommands {
   static String dockerRemove(String id)  => 'docker rm -f $id';
   static String dockerLogs(String id)    => 'docker logs --follow --tail=100 $id';
   static const String dockerImagePrune   = 'docker image prune -f';
+
+  // ── Firewall (UFW) ──────────────────────────────────────────────────────────
+  static const String ufwDetect = 'which ufw 2>/dev/null';
+  static const String portScan  =
+      'ss -tulpn 2>/dev/null || netstat -tulpn 2>/dev/null';
+  static const String ufwStatus  = 'sudo ufw status numbered';
+  static const String ufwEnable  = 'sudo ufw --force enable';
+  static const String ufwDisable = 'sudo ufw disable';
+  static const String ufwReload  = 'sudo ufw reload';
+  static String ufwAllow(int port, String proto) => 'sudo ufw allow $port/$proto';
+  static String ufwDeny(int port, String proto)  => 'sudo ufw deny $port/$proto';
+  static String ufwDeleteRule(int n)             => 'sudo ufw --force delete $n';
 }
