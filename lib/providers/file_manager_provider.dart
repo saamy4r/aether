@@ -8,6 +8,12 @@ import 'vps_connection_provider.dart';
 
 enum ViewMode { list, grid }
 
+typedef Clipboard = ({
+  List<String> names,
+  String sourcePath,
+  bool isCut,
+});
+
 class FileManagerState {
   const FileManagerState({
     this.currentPath = '/',
@@ -17,6 +23,7 @@ class FileManagerState {
     this.transferProgress,
     this.transferName,
     this.viewMode = ViewMode.list,
+    this.clipboard,
   });
   final String currentPath;
   final List<SftpEntry> entries;
@@ -25,6 +32,9 @@ class FileManagerState {
   final double? transferProgress;
   final String? transferName;
   final ViewMode viewMode;
+  final Clipboard? clipboard;
+
+  bool get hasClipboard => clipboard != null && clipboard!.names.isNotEmpty;
 
   FileManagerState copyWith({
     String? currentPath,
@@ -34,6 +44,7 @@ class FileManagerState {
     double? transferProgress,
     String? transferName,
     ViewMode? viewMode,
+    Object? clipboard = _keep,
   }) => FileManagerState(
     currentPath: currentPath ?? this.currentPath,
     entries: entries ?? this.entries,
@@ -42,7 +53,10 @@ class FileManagerState {
     transferProgress: transferProgress,
     transferName: transferName ?? this.transferName,
     viewMode: viewMode ?? this.viewMode,
+    clipboard: identical(clipboard, _keep) ? this.clipboard : clipboard as Clipboard?,
   );
+
+  static const Object _keep = Object();
 }
 
 class FileManagerNotifier extends FamilyAsyncNotifier<FileManagerState, String> {
@@ -110,6 +124,7 @@ class FileManagerNotifier extends FamilyAsyncNotifier<FileManagerState, String> 
       currentPath: path,
       entries: entries,
       viewMode: current?.viewMode ?? ViewMode.list,
+      clipboard: current?.clipboard,
     );
   }
 
@@ -137,6 +152,45 @@ class FileManagerNotifier extends FamilyAsyncNotifier<FileManagerState, String> 
       viewMode: current.viewMode == ViewMode.list ? ViewMode.grid : ViewMode.list,
     ));
   }
+
+  // ── Clipboard ──────────────────────────────────────────────────────────────
+
+  void setClipboard(List<String> names, {required bool isCut}) {
+    final current = state.valueOrNull;
+    if (current == null) return;
+    state = AsyncValue.data(current.copyWith(
+      clipboard: (names: names, sourcePath: current.currentPath, isCut: isCut),
+    ));
+  }
+
+  Future<void> paste() async {
+    final current = state.valueOrNull;
+    if (current == null || !current.hasClipboard) return;
+    final cb = current.clipboard!;
+    final dest = current.currentPath;
+    try {
+      for (final name in cb.names) {
+        final src = '${cb.sourcePath}/$name';
+        final dst = '$dest/$name';
+        if (cb.isCut) {
+          await _execSsh('mv "$src" "$dst"');
+        } else {
+          await _execSsh('cp -r "$src" "$dst"');
+        }
+      }
+      // After cut+paste clear clipboard; after copy keep it for multi-paste
+      state = AsyncValue.data(current.copyWith(
+        clipboard: cb.isCut ? null : cb,
+      ));
+      await refresh();
+    } catch (e) {
+      state = AsyncValue.data(current.copyWith(
+        errorMessage: 'Paste failed: $e',
+      ));
+    }
+  }
+
+  // ── File operations ────────────────────────────────────────────────────────
 
   Future<void> createDirectory(String name) async {
     final current = state.valueOrNull;
@@ -247,6 +301,28 @@ class FileManagerNotifier extends FamilyAsyncNotifier<FileManagerState, String> 
         await _execSsh('rm -rf "$path"');
       } else {
         await _sftp!.remove(path);
+      }
+      await refresh();
+    } catch (e) {
+      state = AsyncValue.data(current.copyWith(
+        errorMessage: 'Delete failed: $e',
+      ));
+    }
+  }
+
+  Future<void> deleteEntries(List<String> names) async {
+    final current = state.valueOrNull;
+    if (current == null) return;
+    try {
+      final entryMap = {for (final e in current.entries) e.name: e};
+      for (final name in names) {
+        final path = '${current.currentPath}/$name';
+        final entry = entryMap[name];
+        if (entry?.isDirectory == true) {
+          await _execSsh('rm -rf "$path"');
+        } else {
+          await _sftp!.remove(path);
+        }
       }
       await refresh();
     } catch (e) {

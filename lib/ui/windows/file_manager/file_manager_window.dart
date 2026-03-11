@@ -16,15 +16,24 @@ class FileManagerWindowContent extends ConsumerStatefulWidget {
 
 class _FileManagerWindowContentState
     extends ConsumerState<FileManagerWindowContent> {
+  final Set<String> _selectedNames = {};
   bool _searchActive = false;
   String _searchQuery = '';
   final _searchController = TextEditingController();
+  String? _lastPath;
 
   @override
   void dispose() {
     _searchController.dispose();
     super.dispose();
   }
+
+  void _toggleSelect(String name) =>
+      setState(() => _selectedNames.contains(name)
+          ? _selectedNames.remove(name)
+          : _selectedNames.add(name));
+
+  void _clearSelection() => setState(() => _selectedNames.clear());
 
   @override
   Widget build(BuildContext context) {
@@ -55,6 +64,12 @@ class _FileManagerWindowContentState
         ),
       ),
       data: (state) {
+        // Clear selection when navigating to a different folder
+        if (_lastPath != state.currentPath) {
+          _lastPath = state.currentPath;
+          WidgetsBinding.instance.addPostFrameCallback((_) => _clearSelection());
+        }
+
         final entries = _searchQuery.isEmpty
             ? state.entries
             : state.entries
@@ -69,6 +84,8 @@ class _FileManagerWindowContentState
               path: state.currentPath,
               notifier: notifier,
               viewMode: state.viewMode,
+              hasClipboard: state.hasClipboard,
+              selectedCount: _selectedNames.length,
               searchActive: _searchActive,
               onSearchToggle: () => setState(() {
                 _searchActive = !_searchActive;
@@ -141,7 +158,9 @@ class _FileManagerWindowContentState
                 entries: entries,
                 state: state,
                 notifier: notifier,
-                vpsId: widget.vpsId,
+                selectedNames: _selectedNames,
+                onToggleSelect: _toggleSelect,
+                onClearSelection: _clearSelection,
               ),
             ),
             if (state.transferProgress != null)
@@ -156,19 +175,23 @@ class _FileManagerWindowContentState
   }
 }
 
-// ─── Breadcrumb Bar ──────────────────────────────────────────────────────────
+// ─── Breadcrumb Bar ───────────────────────────────────────────────────────────
 
 class _BreadcrumbBar extends StatelessWidget {
   const _BreadcrumbBar({
     required this.path,
     required this.notifier,
     required this.viewMode,
+    required this.hasClipboard,
+    required this.selectedCount,
     required this.searchActive,
     required this.onSearchToggle,
   });
   final String path;
   final FileManagerNotifier notifier;
   final ViewMode viewMode;
+  final bool hasClipboard;
+  final int selectedCount;
   final bool searchActive;
   final VoidCallback onSearchToggle;
 
@@ -218,6 +241,22 @@ class _BreadcrumbBar extends StatelessWidget {
               ),
             ),
           ),
+          if (selectedCount > 0)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4),
+              child: Text('$selectedCount selected',
+                  style: const TextStyle(
+                      color: AetherColors.accent, fontSize: 10)),
+            ),
+          if (hasClipboard)
+            IconButton(
+              icon: const Icon(Icons.content_paste, size: 14),
+              onPressed: notifier.paste,
+              padding: EdgeInsets.zero,
+              color: AetherColors.accentTeal,
+              constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+              tooltip: 'Paste',
+            ),
           IconButton(
             icon: Icon(searchActive ? Icons.search_off : Icons.search,
                 size: 14),
@@ -244,19 +283,30 @@ class _BreadcrumbBar extends StatelessWidget {
   }
 }
 
-// ─── File List Area (with empty-space context menu) ──────────────────────────
+// ─── File List Area ───────────────────────────────────────────────────────────
 
 class _FileListArea extends StatelessWidget {
   const _FileListArea({
     required this.entries,
     required this.state,
     required this.notifier,
-    required this.vpsId,
+    required this.selectedNames,
+    required this.onToggleSelect,
+    required this.onClearSelection,
   });
   final List<SftpEntry> entries;
   final FileManagerState state;
   final FileManagerNotifier notifier;
-  final String vpsId;
+  final Set<String> selectedNames;
+  final void Function(String) onToggleSelect;
+  final VoidCallback onClearSelection;
+
+  // Returns the names to operate on: all selected if target is in selection,
+  // otherwise just the tapped entry.
+  List<String> _targets(String tappedName) =>
+      selectedNames.contains(tappedName) && selectedNames.length > 1
+          ? selectedNames.toList()
+          : [tappedName];
 
   void _showEmptySpaceMenu(BuildContext context, Offset globalPos) async {
     final overlay =
@@ -272,14 +322,17 @@ class _FileListArea extends StatelessWidget {
       shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(8),
           side: const BorderSide(color: AetherColors.glassBorder)),
-      items: const [
-        PopupMenuItem(value: 'upload',
+      items: [
+        const PopupMenuItem(value: 'upload',
             child: _MenuRow(Icons.upload_file, 'Upload File', AetherColors.accent)),
-        PopupMenuItem(value: 'new_folder',
+        const PopupMenuItem(value: 'new_folder',
             child: _MenuRow(Icons.create_new_folder_outlined, 'New Folder', AetherColors.accentTeal)),
-        PopupMenuItem(value: 'new_file',
+        const PopupMenuItem(value: 'new_file',
             child: _MenuRow(Icons.note_add_outlined, 'New File', AetherColors.textSecondary)),
-        PopupMenuItem(value: 'refresh',
+        if (state.hasClipboard)
+          const PopupMenuItem(value: 'paste',
+              child: _MenuRow(Icons.content_paste, 'Paste', AetherColors.accentTeal)),
+        const PopupMenuItem(value: 'refresh',
             child: _MenuRow(Icons.refresh, 'Refresh', AetherColors.textSecondary)),
       ],
     );
@@ -291,11 +344,93 @@ class _FileListArea extends StatelessWidget {
           notifier.upload(result.files.single.path!);
         }
       case 'new_folder':
-        _showNameDialog(context, 'New Folder', (name) => notifier.createDirectory(name));
+        _showNameDialog(context, 'New Folder',
+            (name) => notifier.createDirectory(name));
       case 'new_file':
-        _showNameDialog(context, 'New File', (name) => notifier.createFile(name));
+        _showNameDialog(
+            context, 'New File', (name) => notifier.createFile(name));
+      case 'paste':
+        notifier.paste();
       case 'refresh':
         notifier.refresh();
+    }
+  }
+
+  void _showEntryContextMenu(
+      BuildContext context, Offset globalPos, SftpEntry entry) async {
+    final targets = _targets(entry.name);
+    final isMulti = targets.length > 1;
+    final isSingleFile = !isMulti && !entry.isDirectory;
+    final isArchive = !isMulti && _isArchive(entry.name);
+
+    final overlay =
+        Overlay.of(context).context.findRenderObject() as RenderBox;
+    final rect = RelativeRect.fromRect(
+      globalPos & const Size(1, 1),
+      Offset.zero & overlay.size,
+    );
+
+    final action = await showMenu<String>(
+      context: context,
+      position: rect,
+      color: AetherColors.surfaceDeep,
+      shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8),
+          side: const BorderSide(color: AetherColors.glassBorder)),
+      items: [
+        if (!isMulti)
+          const PopupMenuItem(value: 'rename',
+              child: _MenuRow(Icons.drive_file_rename_outline, 'Rename', AetherColors.textPrimary)),
+        PopupMenuItem(
+          value: 'copy',
+          child: _MenuRow(Icons.copy, isMulti ? 'Copy (${targets.length})' : 'Copy', AetherColors.textPrimary),
+        ),
+        PopupMenuItem(
+          value: 'cut',
+          child: _MenuRow(Icons.cut, isMulti ? 'Move (${targets.length})' : 'Move', AetherColors.textPrimary),
+        ),
+        if (state.hasClipboard)
+          const PopupMenuItem(value: 'paste',
+              child: _MenuRow(Icons.content_paste, 'Paste', AetherColors.accentTeal)),
+        if (isSingleFile)
+          const PopupMenuItem(value: 'download',
+              child: _MenuRow(Icons.download, 'Download', AetherColors.accent)),
+        if (isArchive)
+          const PopupMenuItem(value: 'extract',
+              child: _MenuRow(Icons.unarchive_outlined, 'Extract Here', AetherColors.accentTeal)),
+        if (!isMulti && !entry.isDirectory)
+          const PopupMenuItem(value: 'compress',
+              child: _MenuRow(Icons.archive_outlined, 'Compress to Zip', AetherColors.textSecondary)),
+        PopupMenuItem(
+          value: 'delete',
+          child: _MenuRow(Icons.delete_outline,
+              isMulti ? 'Delete (${targets.length})' : 'Delete',
+              AetherColors.accentRed),
+        ),
+      ],
+    );
+
+    if (!context.mounted) return;
+    switch (action) {
+      case 'rename':
+        _showRenameDialog(context, entry.name, notifier);
+      case 'copy':
+        notifier.setClipboard(targets, isCut: false);
+      case 'cut':
+        notifier.setClipboard(targets, isCut: true);
+      case 'paste':
+        notifier.paste();
+      case 'download':
+        final dir = await FilePicker.platform.getDirectoryPath(
+          dialogTitle: 'Save "${entry.name}" to…',
+        );
+        if (dir != null) notifier.download(entry.name, dir);
+      case 'extract':
+        notifier.extractZip(entry.name);
+      case 'compress':
+        notifier.compressToZip([entry.name], '${entry.name}.zip');
+      case 'delete':
+        _showDeleteDialog(context, targets, state, notifier);
     }
   }
 
@@ -303,6 +438,7 @@ class _FileListArea extends StatelessWidget {
   Widget build(BuildContext context) {
     return GestureDetector(
       behavior: HitTestBehavior.translucent,
+      onTap: onClearSelection,
       onSecondaryTapUp: (d) => _showEmptySpaceMenu(context, d.globalPosition),
       onLongPressStart: (d) => _showEmptySpaceMenu(context, d.globalPosition),
       child: state.viewMode == ViewMode.grid
@@ -321,11 +457,23 @@ class _FileListArea extends StatelessWidget {
           : ListView.builder(
               padding: EdgeInsets.zero,
               itemCount: entries.length,
-              itemBuilder: (context, i) => _EntryTile(
-                entry: entries[i],
-                state: state,
-                notifier: notifier,
-              ),
+              itemBuilder: (context, i) {
+                final entry = entries[i];
+                return _EntryTile(
+                  entry: entry,
+                  state: state,
+                  notifier: notifier,
+                  isSelected: selectedNames.contains(entry.name),
+                  onTap: () => onToggleSelect(entry.name),
+                  onDoubleTap: () {
+                    if (entry.isDirectory) {
+                      notifier.navigate('${state.currentPath}/${entry.name}');
+                    }
+                  },
+                  onContextMenu: (pos) =>
+                      _showEntryContextMenu(context, pos, entry),
+                );
+              },
             ),
     );
   }
@@ -346,11 +494,23 @@ class _FileListArea extends StatelessWidget {
                 mainAxisSpacing: 4,
               ),
               itemCount: entries.length,
-              itemBuilder: (context, i) => _EntryGridCell(
-                entry: entries[i],
-                state: state,
-                notifier: notifier,
-              ),
+              itemBuilder: (context, i) {
+                final entry = entries[i];
+                return _EntryGridCell(
+                  entry: entry,
+                  state: state,
+                  notifier: notifier,
+                  isSelected: selectedNames.contains(entry.name),
+                  onTap: () => onToggleSelect(entry.name),
+                  onDoubleTap: () {
+                    if (entry.isDirectory) {
+                      notifier.navigate('${state.currentPath}/${entry.name}');
+                    }
+                  },
+                  onContextMenu: (pos) =>
+                      _showEntryContextMenu(context, pos, entry),
+                );
+              },
             ),
     );
   }
@@ -363,88 +523,46 @@ class _EntryTile extends StatelessWidget {
     required this.entry,
     required this.state,
     required this.notifier,
+    required this.isSelected,
+    required this.onTap,
+    required this.onDoubleTap,
+    required this.onContextMenu,
   });
   final SftpEntry entry;
   final FileManagerState state;
   final FileManagerNotifier notifier;
-
-  void _showContextMenu(BuildContext context, Offset globalPos) async {
-    final overlay =
-        Overlay.of(context).context.findRenderObject() as RenderBox;
-    final rect = RelativeRect.fromRect(
-      globalPos & const Size(1, 1),
-      Offset.zero & overlay.size,
-    );
-
-    final isArchive = _isArchive(entry.name);
-
-    final action = await showMenu<String>(
-      context: context,
-      position: rect,
-      color: AetherColors.surfaceDeep,
-      shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8),
-          side: const BorderSide(color: AetherColors.glassBorder)),
-      items: [
-        const PopupMenuItem(value: 'rename',
-            child: _MenuRow(Icons.drive_file_rename_outline, 'Rename', AetherColors.textPrimary)),
-        if (!entry.isDirectory)
-          const PopupMenuItem(value: 'download',
-              child: _MenuRow(Icons.download, 'Download', AetherColors.accent)),
-        if (isArchive)
-          const PopupMenuItem(value: 'extract',
-              child: _MenuRow(Icons.unarchive_outlined, 'Extract Here', AetherColors.accentTeal)),
-        if (!entry.isDirectory)
-          const PopupMenuItem(value: 'compress',
-              child: _MenuRow(Icons.archive_outlined, 'Compress to Zip', AetherColors.textSecondary)),
-        const PopupMenuItem(value: 'delete',
-            child: _MenuRow(Icons.delete_outline, 'Delete', AetherColors.accentRed)),
-      ],
-    );
-
-    if (!context.mounted) return;
-    switch (action) {
-      case 'rename':
-        _showRenameDialog(context, entry.name, notifier);
-      case 'download':
-        final dir = await FilePicker.platform.getDirectoryPath(
-          dialogTitle: 'Save "${entry.name}" to…',
-        );
-        if (dir != null) notifier.download(entry.name, dir);
-      case 'extract':
-        notifier.extractZip(entry.name);
-      case 'compress':
-        notifier.compressToZip([entry.name], '${entry.name}.zip');
-      case 'delete':
-        _showDeleteDialog(context, entry, notifier);
-    }
-  }
+  final bool isSelected;
+  final VoidCallback onTap;
+  final VoidCallback onDoubleTap;
+  final void Function(Offset) onContextMenu;
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: () {
-        if (entry.isDirectory) {
-          notifier.navigate('${state.currentPath}/${entry.name}');
-        }
-      },
-      onSecondaryTapUp: (d) => _showContextMenu(context, d.globalPosition),
-      onLongPressStart: (d) => _showContextMenu(context, d.globalPosition),
+      onTap: onTap,
+      onDoubleTap: onDoubleTap,
+      onSecondaryTapUp: (d) => onContextMenu(d.globalPosition),
+      onLongPressStart: (d) => onContextMenu(d.globalPosition),
       child: Container(
         height: 36,
+        color: isSelected
+            ? AetherColors.accent.withOpacity(0.15)
+            : Colors.transparent,
         padding: const EdgeInsets.symmetric(horizontal: 8),
         child: Row(
           children: [
-            Icon(
-              _iconForEntry(entry),
-              size: 16,
-              color: _colorForEntry(entry),
-            ),
+            if (isSelected)
+              const Icon(Icons.check_circle, size: 14, color: AetherColors.accent)
+            else
+              Icon(_iconForEntry(entry), size: 14, color: _colorForEntry(entry)),
             const SizedBox(width: 8),
             Expanded(
               child: Text(entry.name,
-                  style: const TextStyle(
-                      color: AetherColors.textPrimary, fontSize: 12),
+                  style: TextStyle(
+                      color: isSelected
+                          ? AetherColors.accent
+                          : AetherColors.textPrimary,
+                      fontSize: 12),
                   overflow: TextOverflow.ellipsis),
             ),
             if (!entry.isDirectory)
@@ -465,74 +583,35 @@ class _EntryGridCell extends StatelessWidget {
     required this.entry,
     required this.state,
     required this.notifier,
+    required this.isSelected,
+    required this.onTap,
+    required this.onDoubleTap,
+    required this.onContextMenu,
   });
   final SftpEntry entry;
   final FileManagerState state;
   final FileManagerNotifier notifier;
-
-  void _showContextMenu(BuildContext context, Offset globalPos) async {
-    final overlay =
-        Overlay.of(context).context.findRenderObject() as RenderBox;
-    final rect = RelativeRect.fromRect(
-      globalPos & const Size(1, 1),
-      Offset.zero & overlay.size,
-    );
-    final isArchive = _isArchive(entry.name);
-    final action = await showMenu<String>(
-      context: context,
-      position: rect,
-      color: AetherColors.surfaceDeep,
-      shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8),
-          side: const BorderSide(color: AetherColors.glassBorder)),
-      items: [
-        const PopupMenuItem(value: 'rename',
-            child: _MenuRow(Icons.drive_file_rename_outline, 'Rename', AetherColors.textPrimary)),
-        if (!entry.isDirectory)
-          const PopupMenuItem(value: 'download',
-              child: _MenuRow(Icons.download, 'Download', AetherColors.accent)),
-        if (isArchive)
-          const PopupMenuItem(value: 'extract',
-              child: _MenuRow(Icons.unarchive_outlined, 'Extract Here', AetherColors.accentTeal)),
-        if (!entry.isDirectory)
-          const PopupMenuItem(value: 'compress',
-              child: _MenuRow(Icons.archive_outlined, 'Compress to Zip', AetherColors.textSecondary)),
-        const PopupMenuItem(value: 'delete',
-            child: _MenuRow(Icons.delete_outline, 'Delete', AetherColors.accentRed)),
-      ],
-    );
-    if (!context.mounted) return;
-    switch (action) {
-      case 'rename':
-        _showRenameDialog(context, entry.name, notifier);
-      case 'download':
-        final dir = await FilePicker.platform.getDirectoryPath(
-          dialogTitle: 'Save "${entry.name}" to…',
-        );
-        if (dir != null) notifier.download(entry.name, dir);
-      case 'extract':
-        notifier.extractZip(entry.name);
-      case 'compress':
-        notifier.compressToZip([entry.name], '${entry.name}.zip');
-      case 'delete':
-        _showDeleteDialog(context, entry, notifier);
-    }
-  }
+  final bool isSelected;
+  final VoidCallback onTap;
+  final VoidCallback onDoubleTap;
+  final void Function(Offset) onContextMenu;
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: () {
-        if (entry.isDirectory) {
-          notifier.navigate('${state.currentPath}/${entry.name}');
-        }
-      },
-      onSecondaryTapUp: (d) => _showContextMenu(context, d.globalPosition),
-      onLongPressStart: (d) => _showContextMenu(context, d.globalPosition),
+      onTap: onTap,
+      onDoubleTap: onDoubleTap,
+      onSecondaryTapUp: (d) => onContextMenu(d.globalPosition),
+      onLongPressStart: (d) => onContextMenu(d.globalPosition),
       child: Container(
         decoration: BoxDecoration(
-          color: AetherColors.glassBase,
+          color: isSelected
+              ? AetherColors.accent.withOpacity(0.2)
+              : AetherColors.glassBase,
           borderRadius: BorderRadius.circular(6),
+          border: isSelected
+              ? Border.all(color: AetherColors.accent.withOpacity(0.5))
+              : null,
         ),
         padding: const EdgeInsets.all(6),
         child: Column(
@@ -542,8 +621,11 @@ class _EntryGridCell extends StatelessWidget {
             const SizedBox(height: 4),
             Text(
               entry.name,
-              style: const TextStyle(
-                  color: AetherColors.textPrimary, fontSize: 10),
+              style: TextStyle(
+                  color: isSelected
+                      ? AetherColors.accent
+                      : AetherColors.textPrimary,
+                  fontSize: 10),
               overflow: TextOverflow.ellipsis,
               maxLines: 2,
               textAlign: TextAlign.center,
@@ -578,9 +660,7 @@ class _TransferTray extends StatelessWidget {
             width: 14,
             height: 14,
             child: CircularProgressIndicator(
-              strokeWidth: 1.5,
-              color: AetherColors.accent,
-            ),
+                strokeWidth: 1.5, color: AetherColors.accent),
           ),
           const SizedBox(width: 8),
           Expanded(
@@ -613,7 +693,7 @@ class _TransferTray extends StatelessWidget {
   }
 }
 
-// ─── Empty folder placeholder ─────────────────────────────────────────────────
+// ─── Empty folder ─────────────────────────────────────────────────────────────
 
 class _EmptyFolder extends StatelessWidget {
   const _EmptyFolder();
@@ -627,8 +707,7 @@ class _EmptyFolder extends StatelessWidget {
           Icon(Icons.folder_open, color: AetherColors.textSecondary, size: 32),
           SizedBox(height: 8),
           Text('Empty folder',
-              style: TextStyle(
-                  color: AetherColors.textSecondary, fontSize: 12)),
+              style: TextStyle(color: AetherColors.textSecondary, fontSize: 12)),
         ],
       ),
     );
@@ -673,27 +752,12 @@ IconData _iconForEntry(SftpEntry e) {
   final ext =
       e.name.contains('.') ? e.name.split('.').last.toLowerCase() : '';
   return switch (ext) {
-    'zip' || 'tar' || 'gz' || 'bz2' || 'xz' || '7z' || 'rar' || 'tgz' =>
-      Icons.archive,
-    'jpg' || 'jpeg' || 'png' || 'gif' || 'bmp' || 'svg' || 'webp' =>
-      Icons.image,
+    'zip' || 'tar' || 'gz' || 'bz2' || 'xz' || '7z' || 'rar' || 'tgz' => Icons.archive,
+    'jpg' || 'jpeg' || 'png' || 'gif' || 'bmp' || 'svg' || 'webp' => Icons.image,
     'mp4' || 'mkv' || 'avi' || 'mov' || 'webm' => Icons.video_file,
     'mp3' || 'wav' || 'flac' || 'aac' || 'ogg' => Icons.audio_file,
-    'py' ||
-    'js' ||
-    'ts' ||
-    'dart' ||
-    'go' ||
-    'rs' ||
-    'cpp' ||
-    'c' ||
-    'java' ||
-    'sh' ||
-    'rb' ||
-    'php' =>
-      Icons.code,
-    'html' || 'css' || 'xml' || 'json' || 'yaml' || 'yml' || 'toml' =>
-      Icons.code,
+    'py' || 'js' || 'ts' || 'dart' || 'go' || 'rs' || 'cpp' || 'c' || 'java' || 'sh' || 'rb' || 'php' => Icons.code,
+    'html' || 'css' || 'xml' || 'json' || 'yaml' || 'yml' || 'toml' => Icons.code,
     'txt' || 'md' || 'log' => Icons.description,
     'pdf' => Icons.picture_as_pdf,
     'doc' || 'docx' || 'odt' => Icons.article,
@@ -709,29 +773,13 @@ Color _colorForEntry(SftpEntry e) {
   final ext =
       e.name.contains('.') ? e.name.split('.').last.toLowerCase() : '';
   return switch (ext) {
-    'zip' || 'tar' || 'gz' || 'bz2' || 'xz' || '7z' || 'rar' || 'tgz' =>
-      AetherColors.accentYellow,
-    'jpg' || 'jpeg' || 'png' || 'gif' || 'bmp' || 'svg' || 'webp' =>
-      AetherColors.accentTeal,
+    'zip' || 'tar' || 'gz' || 'bz2' || 'xz' || '7z' || 'rar' || 'tgz' => AetherColors.accentYellow,
+    'jpg' || 'jpeg' || 'png' || 'gif' || 'bmp' || 'svg' || 'webp' => AetherColors.accentTeal,
     'mp4' || 'mkv' || 'avi' || 'mov' || 'webm' => const Color(0xFF9B59B6),
     'mp3' || 'wav' || 'flac' || 'aac' || 'ogg' => const Color(0xFFE91E63),
-    'py' ||
-    'js' ||
-    'ts' ||
-    'dart' ||
-    'go' ||
-    'rs' ||
-    'cpp' ||
-    'c' ||
-    'java' ||
-    'sh' ||
-    'rb' ||
-    'php' =>
-      AetherColors.accent,
-    'html' || 'css' || 'xml' || 'json' || 'yaml' || 'yml' || 'toml' =>
-      AetherColors.accent,
+    'py' || 'js' || 'ts' || 'dart' || 'go' || 'rs' || 'cpp' || 'c' || 'java' || 'sh' || 'rb' || 'php' => AetherColors.accent,
+    'html' || 'css' || 'xml' || 'json' || 'yaml' || 'yml' || 'toml' => AetherColors.accent,
     'pdf' => AetherColors.accentRed,
-    'txt' || 'md' || 'log' => AetherColors.textSecondary,
     _ => AetherColors.textSecondary,
   };
 }
@@ -834,20 +882,19 @@ void _showRenameDialog(
   );
 }
 
-void _showDeleteDialog(
-    BuildContext context, SftpEntry entry, FileManagerNotifier notifier) {
+void _showDeleteDialog(BuildContext context, List<String> targets,
+    FileManagerState state, FileManagerNotifier notifier) {
+  final isMulti = targets.length > 1;
+  final label = isMulti ? '${targets.length} items' : '"${targets.first}"';
   showDialog(
     context: context,
     builder: (_) => AlertDialog(
       backgroundColor: AetherColors.surfaceDeep,
-      title: Text('Delete "${entry.name}"?',
+      title: Text('Delete $label?',
           style: const TextStyle(color: AetherColors.textPrimary)),
       content: Text(
-        entry.isDirectory
-            ? 'This will permanently delete the folder and all its contents.'
-            : 'This file will be permanently deleted.',
-        style: const TextStyle(
-            color: AetherColors.textSecondary, fontSize: 13),
+        'This will permanently delete ${isMulti ? 'these items' : 'this item'} and cannot be undone.',
+        style: const TextStyle(color: AetherColors.textSecondary, fontSize: 13),
       ),
       actions: [
         TextButton(
@@ -858,7 +905,19 @@ void _showDeleteDialog(
         TextButton(
           onPressed: () {
             Navigator.pop(context);
-            notifier.deleteEntry(entry);
+            if (isMulti) {
+              notifier.deleteEntries(targets);
+            } else {
+              final entry = state.entries
+                  .firstWhere((e) => e.name == targets.first,
+                      orElse: () => SftpEntry(
+                          name: targets.first,
+                          isDirectory: false,
+                          size: 0,
+                          permissions: 0,
+                          modifyTime: DateTime.now()));
+              notifier.deleteEntry(entry);
+            }
           },
           child: const Text('Delete',
               style: TextStyle(color: AetherColors.accentRed)),
