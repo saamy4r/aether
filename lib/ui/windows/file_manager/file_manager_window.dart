@@ -1,5 +1,6 @@
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/colors.dart';
 import '../../../core/models/sftp_entry.dart';
@@ -16,6 +17,9 @@ class FileManagerWindowContent extends ConsumerStatefulWidget {
 
 class _FileManagerWindowContentState
     extends ConsumerState<FileManagerWindowContent> {
+  // Single-click focus — only one item at a time, like a cursor
+  String? _focusedName;
+  // Ctrl+click multi-select
   final Set<String> _selectedNames = {};
   bool _searchActive = false;
   String _searchQuery = '';
@@ -28,12 +32,26 @@ class _FileManagerWindowContentState
     super.dispose();
   }
 
-  void _toggleSelect(String name) =>
-      setState(() => _selectedNames.contains(name)
-          ? _selectedNames.remove(name)
-          : _selectedNames.add(name));
+  void _handleTap(String name) {
+    setState(() {
+      if (HardwareKeyboard.instance.isControlPressed) {
+        // Ctrl+click: toggle in multi-selection
+        _selectedNames.contains(name)
+            ? _selectedNames.remove(name)
+            : _selectedNames.add(name);
+        _focusedName = name;
+      } else {
+        // Plain click: focus only this item, clear multi-selection
+        _focusedName = name;
+        _selectedNames.clear();
+      }
+    });
+  }
 
-  void _clearSelection() => setState(() => _selectedNames.clear());
+  void _clearFocusAndSelection() => setState(() {
+        _focusedName = null;
+        _selectedNames.clear();
+      });
 
   @override
   Widget build(BuildContext context) {
@@ -64,10 +82,11 @@ class _FileManagerWindowContentState
         ),
       ),
       data: (state) {
-        // Clear selection when navigating to a different folder
+        // Clear focus + selection when navigating to a different folder
         if (_lastPath != state.currentPath) {
           _lastPath = state.currentPath;
-          WidgetsBinding.instance.addPostFrameCallback((_) => _clearSelection());
+          WidgetsBinding.instance
+              .addPostFrameCallback((_) => _clearFocusAndSelection());
         }
 
         final entries = _searchQuery.isEmpty
@@ -158,9 +177,10 @@ class _FileManagerWindowContentState
                 entries: entries,
                 state: state,
                 notifier: notifier,
+                focusedName: _focusedName,
                 selectedNames: _selectedNames,
-                onToggleSelect: _toggleSelect,
-                onClearSelection: _clearSelection,
+                onTap: _handleTap,
+                onClearFocusAndSelection: _clearFocusAndSelection,
               ),
             ),
             if (state.transferProgress != null)
@@ -290,19 +310,21 @@ class _FileListArea extends StatelessWidget {
     required this.entries,
     required this.state,
     required this.notifier,
+    required this.focusedName,
     required this.selectedNames,
-    required this.onToggleSelect,
-    required this.onClearSelection,
+    required this.onTap,
+    required this.onClearFocusAndSelection,
   });
   final List<SftpEntry> entries;
   final FileManagerState state;
   final FileManagerNotifier notifier;
+  final String? focusedName;
   final Set<String> selectedNames;
-  final void Function(String) onToggleSelect;
-  final VoidCallback onClearSelection;
+  final void Function(String) onTap;
+  final VoidCallback onClearFocusAndSelection;
 
-  // Returns the names to operate on: all selected if target is in selection,
-  // otherwise just the tapped entry.
+  // Operate on all Ctrl-selected items if the target is among them,
+  // otherwise operate on just the right-clicked entry.
   List<String> _targets(String tappedName) =>
       selectedNames.contains(tappedName) && selectedNames.length > 1
           ? selectedNames.toList()
@@ -438,7 +460,7 @@ class _FileListArea extends StatelessWidget {
   Widget build(BuildContext context) {
     return GestureDetector(
       behavior: HitTestBehavior.translucent,
-      onTap: onClearSelection,
+      onTap: onClearFocusAndSelection,
       onSecondaryTapUp: (d) => _showEmptySpaceMenu(context, d.globalPosition),
       onLongPressStart: (d) => _showEmptySpaceMenu(context, d.globalPosition),
       child: state.viewMode == ViewMode.grid
@@ -463,8 +485,9 @@ class _FileListArea extends StatelessWidget {
                   entry: entry,
                   state: state,
                   notifier: notifier,
+                  isHighlighted: entry.name == focusedName || selectedNames.contains(entry.name),
                   isSelected: selectedNames.contains(entry.name),
-                  onTap: () => onToggleSelect(entry.name),
+                  onTap: () => onTap(entry.name),
                   onDoubleTap: () {
                     if (entry.isDirectory) {
                       notifier.navigate('${state.currentPath}/${entry.name}');
@@ -500,8 +523,9 @@ class _FileListArea extends StatelessWidget {
                   entry: entry,
                   state: state,
                   notifier: notifier,
+                  isHighlighted: entry.name == focusedName || selectedNames.contains(entry.name),
                   isSelected: selectedNames.contains(entry.name),
-                  onTap: () => onToggleSelect(entry.name),
+                  onTap: () => onTap(entry.name),
                   onDoubleTap: () {
                     if (entry.isDirectory) {
                       notifier.navigate('${state.currentPath}/${entry.name}');
@@ -523,6 +547,7 @@ class _EntryTile extends StatelessWidget {
     required this.entry,
     required this.state,
     required this.notifier,
+    required this.isHighlighted,
     required this.isSelected,
     required this.onTap,
     required this.onDoubleTap,
@@ -531,7 +556,8 @@ class _EntryTile extends StatelessWidget {
   final SftpEntry entry;
   final FileManagerState state;
   final FileManagerNotifier notifier;
-  final bool isSelected;
+  final bool isHighlighted; // blue bg — focused OR ctrl-selected
+  final bool isSelected;    // ctrl-selected — shows checkmark
   final VoidCallback onTap;
   final VoidCallback onDoubleTap;
   final void Function(Offset) onContextMenu;
@@ -545,7 +571,7 @@ class _EntryTile extends StatelessWidget {
       onLongPressStart: (d) => onContextMenu(d.globalPosition),
       child: Container(
         height: 36,
-        color: isSelected
+        color: isHighlighted
             ? AetherColors.accent.withOpacity(0.15)
             : Colors.transparent,
         padding: const EdgeInsets.symmetric(horizontal: 8),
@@ -559,7 +585,7 @@ class _EntryTile extends StatelessWidget {
             Expanded(
               child: Text(entry.name,
                   style: TextStyle(
-                      color: isSelected
+                      color: isHighlighted
                           ? AetherColors.accent
                           : AetherColors.textPrimary,
                       fontSize: 12),
@@ -583,6 +609,7 @@ class _EntryGridCell extends StatelessWidget {
     required this.entry,
     required this.state,
     required this.notifier,
+    required this.isHighlighted,
     required this.isSelected,
     required this.onTap,
     required this.onDoubleTap,
@@ -591,6 +618,7 @@ class _EntryGridCell extends StatelessWidget {
   final SftpEntry entry;
   final FileManagerState state;
   final FileManagerNotifier notifier;
+  final bool isHighlighted;
   final bool isSelected;
   final VoidCallback onTap;
   final VoidCallback onDoubleTap;
@@ -605,11 +633,11 @@ class _EntryGridCell extends StatelessWidget {
       onLongPressStart: (d) => onContextMenu(d.globalPosition),
       child: Container(
         decoration: BoxDecoration(
-          color: isSelected
+          color: isHighlighted
               ? AetherColors.accent.withOpacity(0.2)
               : AetherColors.glassBase,
           borderRadius: BorderRadius.circular(6),
-          border: isSelected
+          border: isHighlighted
               ? Border.all(color: AetherColors.accent.withOpacity(0.5))
               : null,
         ),
@@ -622,7 +650,7 @@ class _EntryGridCell extends StatelessWidget {
             Text(
               entry.name,
               style: TextStyle(
-                  color: isSelected
+                  color: isHighlighted
                       ? AetherColors.accent
                       : AetherColors.textPrimary,
                   fontSize: 10),
