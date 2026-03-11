@@ -104,40 +104,18 @@ class FirewallWindowContent extends ConsumerWidget {
         // Column headers
         Container(
           color: AetherColors.glassBase,
-          padding:
-              const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
           child: const Row(
             children: [
-              SizedBox(width: 16), // dot
-              SizedBox(width: 8),
-              SizedBox(
-                  width: 38,
-                  child: Text('PROTO',
-                      style: TextStyle(
-                          color: AetherColors.textSecondary,
-                          fontSize: 10,
-                          fontWeight: FontWeight.w600))),
-              SizedBox(
-                  width: 50,
-                  child: Text('PORT',
-                      style: TextStyle(
-                          color: AetherColors.textSecondary,
-                          fontSize: 10,
-                          fontWeight: FontWeight.w600))),
-              Expanded(
-                  child: Text('PROCESS',
-                      style: TextStyle(
-                          color: AetherColors.textSecondary,
-                          fontSize: 10,
-                          fontWeight: FontWeight.w600))),
-              SizedBox(
-                  width: 68,
-                  child: Text('STATUS',
-                      style: TextStyle(
-                          color: AetherColors.textSecondary,
-                          fontSize: 10,
-                          fontWeight: FontWeight.w600))),
-              SizedBox(width: 80), // actions
+              SizedBox(width: 14), // dot placeholder
+              SizedBox(width: 32, child: _HeaderCell('PROTO')),
+              SizedBox(width: 4),
+              SizedBox(width: 42, child: _HeaderCell('PORT')),
+              SizedBox(width: 4),
+              Expanded(child: _HeaderCell('PROCESS')),
+              SizedBox(width: 4),
+              SizedBox(width: 56, child: _HeaderCell('STATUS')),
+              SizedBox(width: 88), // actions placeholder
             ],
           ),
         ),
@@ -440,24 +418,28 @@ class _PortRow extends StatelessWidget {
             decoration:
                 BoxDecoration(shape: BoxShape.circle, color: _dotColor),
           ),
-          const SizedBox(width: 8),
-          // Proto
+          const SizedBox(width: 6),
+          // Proto (fixed)
           SizedBox(
-            width: 38,
+            width: 32,
             child: Text(entry.proto,
                 style: const TextStyle(
-                    color: AetherColors.textSecondary, fontSize: 11)),
+                    color: AetherColors.textSecondary, fontSize: 11),
+                overflow: TextOverflow.ellipsis),
           ),
-          // Port
+          const SizedBox(width: 4),
+          // Port (fixed)
           SizedBox(
-            width: 50,
+            width: 42,
             child: Text(entry.port.toString(),
                 style: const TextStyle(
                     color: AetherColors.textPrimary,
                     fontSize: 12,
-                    fontWeight: FontWeight.w600)),
+                    fontWeight: FontWeight.w600),
+                overflow: TextOverflow.ellipsis),
           ),
-          // Process
+          const SizedBox(width: 4),
+          // Process (expands)
           Expanded(
             child: Text(
               entry.process.isNotEmpty ? entry.process : '—',
@@ -466,15 +448,17 @@ class _PortRow extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
             ),
           ),
-          // Status label
+          const SizedBox(width: 4),
+          // Status (fixed)
           SizedBox(
-            width: 68,
+            width: 56,
             child: Text(_statusLabel,
-                style: TextStyle(color: _statusColor, fontSize: 11)),
+                style: TextStyle(color: _statusColor, fontSize: 11),
+                overflow: TextOverflow.ellipsis),
           ),
-          // Actions
+          // Actions (fixed max)
           SizedBox(
-            width: 80,
+            width: 88,
             child: Row(
               mainAxisAlignment: MainAxisAlignment.end,
               children: _buildActions(ctx),
@@ -555,6 +539,25 @@ class _ActionButton extends StatelessWidget {
         child: Text(label,
             style: TextStyle(color: color, fontSize: 10)),
       ),
+    );
+  }
+}
+
+// ── Header cell ───────────────────────────────────────────────────────────────
+
+class _HeaderCell extends StatelessWidget {
+  const _HeaderCell(this.label);
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      label,
+      style: const TextStyle(
+          color: AetherColors.textSecondary,
+          fontSize: 10,
+          fontWeight: FontWeight.w600),
+      overflow: TextOverflow.ellipsis,
     );
   }
 }
