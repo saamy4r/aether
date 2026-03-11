@@ -1,9 +1,12 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 import 'package:dartssh2/dartssh2.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/models/sftp_entry.dart';
 import 'vps_connection_provider.dart';
+
+enum ViewMode { list, grid }
 
 class FileManagerState {
   const FileManagerState({
@@ -13,6 +16,7 @@ class FileManagerState {
     this.errorMessage,
     this.transferProgress,
     this.transferName,
+    this.viewMode = ViewMode.list,
   });
   final String currentPath;
   final List<SftpEntry> entries;
@@ -20,6 +24,7 @@ class FileManagerState {
   final String? errorMessage;
   final double? transferProgress;
   final String? transferName;
+  final ViewMode viewMode;
 
   FileManagerState copyWith({
     String? currentPath,
@@ -28,6 +33,7 @@ class FileManagerState {
     String? errorMessage,
     double? transferProgress,
     String? transferName,
+    ViewMode? viewMode,
   }) => FileManagerState(
     currentPath: currentPath ?? this.currentPath,
     entries: entries ?? this.entries,
@@ -35,11 +41,13 @@ class FileManagerState {
     errorMessage: errorMessage,
     transferProgress: transferProgress,
     transferName: transferName ?? this.transferName,
+    viewMode: viewMode ?? this.viewMode,
   );
 }
 
 class FileManagerNotifier extends FamilyAsyncNotifier<FileManagerState, String> {
   SftpClient? _sftp;
+  SSHClient? _sshClient;
 
   String get vpsId => arg;
 
@@ -54,6 +62,7 @@ class FileManagerNotifier extends FamilyAsyncNotifier<FileManagerState, String> 
   Future<void> _openSftp() async {
     final client = ref.read(vpsConnectionProvider(vpsId)).valueOrNull?.client;
     if (client == null) throw StateError('Not connected');
+    _sshClient = client;
     _sftp = await client.sftp();
   }
 
@@ -65,7 +74,15 @@ class FileManagerNotifier extends FamilyAsyncNotifier<FileManagerState, String> 
     }
   }
 
+  Future<String> _execSsh(String cmd) async {
+    final session = await _sshClient!.execute(cmd);
+    final out = await session.stdout.toList();
+    await session.done;
+    return utf8.decode(out.expand((b) => b).toList(), allowMalformed: true);
+  }
+
   Future<FileManagerState> _listDir(String path) async {
+    final current = state.valueOrNull;
     final items = await _sftp!.listdir(path);
     final entries = items
         .where((i) => i.filename != '.')
@@ -85,7 +102,11 @@ class FileManagerNotifier extends FamilyAsyncNotifier<FileManagerState, String> 
         if (!a.isDirectory && b.isDirectory) return 1;
         return a.name.compareTo(b.name);
       });
-    return FileManagerState(currentPath: path, entries: entries);
+    return FileManagerState(
+      currentPath: path,
+      entries: entries,
+      viewMode: current?.viewMode ?? ViewMode.list,
+    );
   }
 
   Future<void> navigate(String path) async {
@@ -103,6 +124,44 @@ class FileManagerNotifier extends FamilyAsyncNotifier<FileManagerState, String> 
   Future<void> refresh() async {
     final path = state.valueOrNull?.currentPath ?? '/';
     await navigate(path);
+  }
+
+  void toggleViewMode() {
+    final current = state.valueOrNull;
+    if (current == null) return;
+    state = AsyncValue.data(current.copyWith(
+      viewMode: current.viewMode == ViewMode.list ? ViewMode.grid : ViewMode.list,
+    ));
+  }
+
+  Future<void> createDirectory(String name) async {
+    final current = state.valueOrNull;
+    if (current == null || _sftp == null) return;
+    try {
+      await _sftp!.mkdir('${current.currentPath}/$name');
+      await refresh();
+    } catch (e) {
+      state = AsyncValue.data(current.copyWith(
+        errorMessage: 'Create folder failed: $e',
+      ));
+    }
+  }
+
+  Future<void> createFile(String name) async {
+    final current = state.valueOrNull;
+    if (current == null || _sftp == null) return;
+    try {
+      final f = await _sftp!.open(
+        '${current.currentPath}/$name',
+        mode: SftpFileOpenMode.create | SftpFileOpenMode.write,
+      );
+      await f.close();
+      await refresh();
+    } catch (e) {
+      state = AsyncValue.data(current.copyWith(
+        errorMessage: 'Create file failed: $e',
+      ));
+    }
   }
 
   Future<void> upload(String localPath) async {
@@ -175,12 +234,16 @@ class FileManagerNotifier extends FamilyAsyncNotifier<FileManagerState, String> 
     }
   }
 
-  Future<void> delete(String name) async {
+  Future<void> deleteEntry(SftpEntry entry) async {
     final current = state.valueOrNull;
     if (current == null || _sftp == null) return;
-    final path = '${current.currentPath}/$name';
+    final path = '${current.currentPath}/${entry.name}';
     try {
-      await _sftp!.remove(path);
+      if (entry.isDirectory) {
+        await _execSsh('rm -rf "$path"');
+      } else {
+        await _sftp!.remove(path);
+      }
       await refresh();
     } catch (e) {
       state = AsyncValue.data(current.copyWith(
@@ -204,9 +267,37 @@ class FileManagerNotifier extends FamilyAsyncNotifier<FileManagerState, String> 
     }
   }
 
+  Future<void> extractZip(String name) async {
+    final current = state.valueOrNull;
+    if (current == null || _sshClient == null) return;
+    try {
+      await _execSsh('cd "${current.currentPath}" && unzip -o "$name" -d .');
+      await refresh();
+    } catch (e) {
+      state = AsyncValue.data(current.copyWith(
+        errorMessage: 'Extract failed: $e',
+      ));
+    }
+  }
+
+  Future<void> compressToZip(List<String> names, String archiveName) async {
+    final current = state.valueOrNull;
+    if (current == null || _sshClient == null) return;
+    try {
+      final files = names.map((n) => '"$n"').join(' ');
+      await _execSsh('cd "${current.currentPath}" && zip "$archiveName" $files');
+      await refresh();
+    } catch (e) {
+      state = AsyncValue.data(current.copyWith(
+        errorMessage: 'Compress failed: $e',
+      ));
+    }
+  }
+
   void _cleanup() {
     _sftp?.close();
     _sftp = null;
+    _sshClient = null;
   }
 }
 
