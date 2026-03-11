@@ -152,6 +152,31 @@ class _StartMenuState extends ConsumerState<StartMenu> {
                               label: 'Delete VPS',
                               color: AetherColors.accentRed,
                               onTap: () async {
+                                final confirm = await showDialog<bool>(
+                                  context: context,
+                                  builder: (_) => AlertDialog(
+                                    backgroundColor: AetherColors.surfaceDeep,
+                                    title: const Text('Delete VPS',
+                                        style: TextStyle(color: AetherColors.textPrimary)),
+                                    content: Text(
+                                      'Are you sure you want to delete "${v.label}"? This cannot be undone.',
+                                      style: const TextStyle(color: AetherColors.textSecondary),
+                                    ),
+                                    actions: [
+                                      TextButton(
+                                        onPressed: () => Navigator.pop(context, false),
+                                        child: const Text('Cancel',
+                                            style: TextStyle(color: AetherColors.textSecondary)),
+                                      ),
+                                      TextButton(
+                                        onPressed: () => Navigator.pop(context, true),
+                                        child: const Text('Delete',
+                                            style: TextStyle(color: AetherColors.accentRed)),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                                if (confirm != true) return;
                                 setState(() => _expandedVpsId = null);
                                 await ref.read(vpsConnectionProvider(v.id).notifier).disconnect();
                                 await ref.read(vpsListProvider.notifier).remove(v.id);
