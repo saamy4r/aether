@@ -65,6 +65,10 @@ class TerminalNotifier
         _session?.stdin.add(Uint8List.fromList(utf8.encode(data)));
       };
 
+      terminal.onResize = (width, height, pixelWidth, pixelHeight) {
+        _session?.resizeTerminal(width, height, pixelWidth, pixelHeight);
+      };
+
       // Request a thin beam cursor (DECSCUSR 6 = steady bar)
       terminal.write('\x1b[6 q');
 

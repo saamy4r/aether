@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/gestures.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:xterm/xterm.dart';
 import '../../../core/constants/colors.dart';
 import '../../../providers/terminal_provider.dart';
 import '../../../providers/window_manager_provider.dart';
 
-class TerminalWindowContent extends ConsumerWidget {
+class TerminalWindowContent extends ConsumerStatefulWidget {
   const TerminalWindowContent({
     super.key,
     required this.windowId,
@@ -16,19 +18,48 @@ class TerminalWindowContent extends ConsumerWidget {
   final String vpsId;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<TerminalWindowContent> createState() =>
+      _TerminalWindowContentState();
+}
+
+class _TerminalWindowContentState extends ConsumerState<TerminalWindowContent> {
+  static const double _minFontSize = 6;
+  static const double _maxFontSize = 32;
+  static const double _defaultFontSize = 14;
+
+  double _fontSize = _defaultFontSize;
+  double _scaleStart = _defaultFontSize;
+
+  void _zoom(double delta) {
+    setState(() {
+      _fontSize = (_fontSize + delta).clamp(_minFontSize, _maxFontSize);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final state = ref.watch(
-      terminalProvider((windowId: windowId, vpsId: vpsId)),
+      terminalProvider((windowId: widget.windowId, vpsId: widget.vpsId)),
     );
 
     // Auto-close window when the shell session ends (e.g. user typed 'exit')
     ref.listen(
-      terminalProvider((windowId: windowId, vpsId: vpsId)),
+      terminalProvider((windowId: widget.windowId, vpsId: widget.vpsId)),
       (_, next) {
         if (next.status == TerminalStatus.disconnected) {
-          ref.read(windowManagerProvider.notifier).closeWindow(windowId);
+          ref.read(windowManagerProvider.notifier).closeWindow(widget.windowId);
         }
       },
+    );
+
+    final terminalView = TerminalView(
+      state.terminal,
+      theme: _aetherTerminalTheme,
+      textStyle: TerminalStyle(fontSize: _fontSize),
+      autofocus: true,
+      backgroundOpacity: 0,
+      keyboardType: TextInputType.visiblePassword,
+      onSecondaryTapDown: (_, __) {},
     );
 
     return Column(
@@ -50,14 +81,26 @@ class TerminalWindowContent extends ConsumerWidget {
             minHeight: 2,
           ),
         Expanded(
-          child: TerminalView(
-            state.terminal,
-            theme: _aetherTerminalTheme,
-            textStyle: const TerminalStyle(fontSize: 11),
-            autofocus: true,
-            backgroundOpacity: 0,
-            keyboardType: TextInputType.visiblePassword,
-            onSecondaryTapDown: (_, __) {},
+          // Ctrl+scroll on desktop
+          child: Listener(
+            onPointerSignal: (event) {
+              if (event is PointerScrollEvent &&
+                  HardwareKeyboard.instance.isControlPressed) {
+                _zoom(event.scrollDelta.dy < 0 ? 1 : -1);
+              }
+            },
+            // Pinch-to-zoom on mobile
+            child: GestureDetector(
+              onScaleStart: (_) => _scaleStart = _fontSize,
+              onScaleUpdate: (details) {
+                if (details.pointerCount < 2) return;
+                setState(() {
+                  _fontSize = (_scaleStart * details.scale)
+                      .clamp(_minFontSize, _maxFontSize);
+                });
+              },
+              child: terminalView,
+            ),
           ),
         ),
         _MobileKeyboardToolbar(terminal: state.terminal),
