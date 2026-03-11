@@ -91,6 +91,8 @@ class _StartMenuState extends ConsumerState<StartMenu> {
                             }),
                             onLongPress: () => setState(() =>
                                 _expandedVpsId = isExpanded ? null : v.id),
+                            onSecondaryTap: () => setState(() =>
+                                _expandedVpsId = isExpanded ? null : v.id),
                             child: Padding(
                               padding: const EdgeInsets.symmetric(
                                   horizontal: 12, vertical: 6),
@@ -206,6 +208,8 @@ class _StartMenuState extends ConsumerState<StartMenu> {
                       onTap: () => _open(context, WindowType.terminal),
                       onLongPress: () => setState(() => _expandedMenuLabel =
                           _expandedMenuLabel == AetherStrings.terminal ? null : AetherStrings.terminal),
+                      onSecondaryTap: () => setState(() => _expandedMenuLabel =
+                          _expandedMenuLabel == AetherStrings.terminal ? null : AetherStrings.terminal),
                     ),
                     _MenuItem(
                       icon: Icons.folder,
@@ -214,6 +218,8 @@ class _StartMenuState extends ConsumerState<StartMenu> {
                       onTap: () => _open(context, WindowType.fileManager),
                       onLongPress: () => setState(() => _expandedMenuLabel =
                           _expandedMenuLabel == AetherStrings.fileManager ? null : AetherStrings.fileManager),
+                      onSecondaryTap: () => setState(() => _expandedMenuLabel =
+                          _expandedMenuLabel == AetherStrings.fileManager ? null : AetherStrings.fileManager),
                     ),
                     _MenuItem(
                       icon: Icons.smart_toy,
@@ -221,6 +227,8 @@ class _StartMenuState extends ConsumerState<StartMenu> {
                       expanded: _expandedMenuLabel == AetherStrings.dockerManager,
                       onTap: () => _open(context, WindowType.docker),
                       onLongPress: () => setState(() => _expandedMenuLabel =
+                          _expandedMenuLabel == AetherStrings.dockerManager ? null : AetherStrings.dockerManager),
+                      onSecondaryTap: () => setState(() => _expandedMenuLabel =
                           _expandedMenuLabel == AetherStrings.dockerManager ? null : AetherStrings.dockerManager),
                     ),
                     const Divider(color: AetherColors.glassBorder, height: 1),
@@ -242,6 +250,8 @@ class _StartMenuState extends ConsumerState<StartMenu> {
                     },
                     onLongPress: () => setState(() => _expandedMenuLabel =
                         _expandedMenuLabel == 'Fullscreen' ? null : 'Fullscreen'),
+                    onSecondaryTap: () => setState(() => _expandedMenuLabel =
+                        _expandedMenuLabel == 'Fullscreen' ? null : 'Fullscreen'),
                   ),
                   _MenuItem(
                     icon: Icons.add,
@@ -256,6 +266,8 @@ class _StartMenuState extends ConsumerState<StartMenu> {
                       );
                     },
                     onLongPress: () => setState(() => _expandedMenuLabel =
+                        _expandedMenuLabel == AetherStrings.addVps ? null : AetherStrings.addVps),
+                    onSecondaryTap: () => setState(() => _expandedMenuLabel =
                         _expandedMenuLabel == AetherStrings.addVps ? null : AetherStrings.addVps),
                   ),
                   _MenuItem(
@@ -272,6 +284,8 @@ class _StartMenuState extends ConsumerState<StartMenu> {
                       widget.onClose();
                     },
                     onLongPress: () => setState(() => _expandedMenuLabel =
+                        _expandedMenuLabel == AetherStrings.disconnectAll ? null : AetherStrings.disconnectAll),
+                    onSecondaryTap: () => setState(() => _expandedMenuLabel =
                         _expandedMenuLabel == AetherStrings.disconnectAll ? null : AetherStrings.disconnectAll),
                   ),
                   const SizedBox(height: 8),
@@ -331,12 +345,14 @@ class _MenuItem extends StatelessWidget {
     required this.label,
     required this.onTap,
     this.onLongPress,
+    this.onSecondaryTap,
     this.expanded = false,
   });
   final IconData icon;
   final String label;
   final VoidCallback onTap;
   final VoidCallback? onLongPress;
+  final VoidCallback? onSecondaryTap;
   final bool expanded;
 
   @override
@@ -347,6 +363,7 @@ class _MenuItem extends StatelessWidget {
         InkWell(
           onTap: onTap,
           onLongPress: onLongPress,
+          onSecondaryTap: onSecondaryTap,
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             child: Row(
