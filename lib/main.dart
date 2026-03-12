@@ -11,6 +11,8 @@ void main() async {
        defaultTargetPlatform == TargetPlatform.macOS ||
        defaultTargetPlatform == TargetPlatform.windows)) {
     await windowManager.ensureInitialized();
+    await windowManager.setTitle('Aether');
+    await windowManager.setIcon('assets/icon/icon.png');
   }
   runApp(const ProviderScope(child: AetherApp()));
 }

@@ -1,0 +1,94 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <defs>
+    <radialGradient id="bg" cx="38%" cy="32%" r="75%">
+      <stop offset="0%" stop-color="#1B2D4F"/>
+      <stop offset="100%" stop-color="#0A0E1A"/>
+    </radialGradient>
+    <radialGradient id="glow1" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#3DAEE9" stop-opacity="0.35"/>
+      <stop offset="100%" stop-color="#3DAEE9" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="glow2" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#1ABC9C" stop-opacity="0.25"/>
+      <stop offset="100%" stop-color="#1ABC9C" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="nodeBlue" cx="40%" cy="35%" r="60%">
+      <stop offset="0%" stop-color="#6DD5FA"/>
+      <stop offset="100%" stop-color="#3DAEE9"/>
+    </radialGradient>
+    <radialGradient id="nodeTeal" cx="40%" cy="35%" r="60%">
+      <stop offset="0%" stop-color="#48D7B4"/>
+      <stop offset="100%" stop-color="#1ABC9C"/>
+    </radialGradient>
+    <filter id="softBlur" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="30"/>
+    </filter>
+    <filter id="nodeGlow" x="-80%" y="-80%" width="260%" height="260%">
+      <feGaussianBlur stdDeviation="12"/>
+    </filter>
+    <clipPath id="roundedClip">
+      <rect width="1024" height="1024" rx="224"/>
+    </clipPath>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1024" height="1024" rx="224" fill="url(#bg)"/>
+
+  <!-- Ambient glows clipped to icon shape -->
+  <g clip-path="url(#roundedClip)">
+    <circle cx="380" cy="310" r="340" fill="url(#glow1)" filter="url(#softBlur)"/>
+    <circle cx="660" cy="730" r="280" fill="url(#glow2)" filter="url(#softBlur)"/>
+  </g>
+
+  <!-- Stars -->
+  <circle cx="160" cy="140" r="3.5" fill="white" opacity="0.85"/>
+  <circle cx="860" cy="115" r="2.5" fill="white" opacity="0.7"/>
+  <circle cx="790" cy="88"  r="4"   fill="white" opacity="0.9"/>
+  <circle cx="940" cy="380" r="2"   fill="white" opacity="0.55"/>
+  <circle cx="105" cy="460" r="2.5" fill="white" opacity="0.6"/>
+  <circle cx="920" cy="700" r="3"   fill="white" opacity="0.7"/>
+  <circle cx="130" cy="820" r="2"   fill="white" opacity="0.5"/>
+  <circle cx="880" cy="920" r="3"   fill="white" opacity="0.65"/>
+
+  <!-- Bright star cross-flare (top-right) -->
+  <circle cx="790" cy="88" r="6" fill="white" opacity="0.2" filter="url(#nodeGlow)"/>
+  <line x1="783" y1="88" x2="797" y2="88" stroke="white" stroke-width="1.2" opacity="0.5"/>
+  <line x1="790" y1="81" x2="790" y2="95" stroke="white" stroke-width="1.2" opacity="0.5"/>
+
+  <!-- Connection lines (behind nodes) -->
+  <!-- Top to bottom-left -->
+  <line x1="512" y1="272" x2="308" y2="648" stroke="#3DAEE9" stroke-width="5" stroke-opacity="0.5" stroke-linecap="round"/>
+  <!-- Top to bottom-right -->
+  <line x1="512" y1="272" x2="716" y2="648" stroke="#3DAEE9" stroke-width="5" stroke-opacity="0.5" stroke-linecap="round"/>
+  <!-- Bottom -->
+  <line x1="308" y1="648" x2="716" y2="648" stroke="#1ABC9C" stroke-width="5" stroke-opacity="0.45" stroke-linecap="round"/>
+
+  <!-- ── Top node (primary server) ── -->
+  <!-- Outer glow -->
+  <circle cx="512" cy="272" r="80" fill="#3DAEE9" opacity="0.12" filter="url(#nodeGlow)"/>
+  <!-- Outer ring -->
+  <circle cx="512" cy="272" r="68" fill="none" stroke="#3DAEE9" stroke-width="2.5" stroke-opacity="0.5"/>
+  <!-- Mid fill -->
+  <circle cx="512" cy="272" r="52" fill="#3DAEE9" fill-opacity="0.18"/>
+  <!-- Core -->
+  <circle cx="512" cy="272" r="34" fill="url(#nodeBlue)"/>
+  <!-- Inner highlight -->
+  <circle cx="500" cy="260" r="10" fill="white" fill-opacity="0.25"/>
+
+  <!-- ── Bottom-left node ── -->
+  <circle cx="308" cy="648" r="66" fill="#1ABC9C" opacity="0.10" filter="url(#nodeGlow)"/>
+  <circle cx="308" cy="648" r="56" fill="none" stroke="#1ABC9C" stroke-width="2.5" stroke-opacity="0.45"/>
+  <circle cx="308" cy="648" r="42" fill="#1ABC9C" fill-opacity="0.18"/>
+  <circle cx="308" cy="648" r="27" fill="url(#nodeTeal)"/>
+  <circle cx="297" cy="638" r="8" fill="white" fill-opacity="0.22"/>
+
+  <!-- ── Bottom-right node ── -->
+  <circle cx="716" cy="648" r="66" fill="#1ABC9C" opacity="0.10" filter="url(#nodeGlow)"/>
+  <circle cx="716" cy="648" r="56" fill="none" stroke="#1ABC9C" stroke-width="2.5" stroke-opacity="0.45"/>
+  <circle cx="716" cy="648" r="42" fill="#1ABC9C" fill-opacity="0.18"/>
+  <circle cx="716" cy="648" r="27" fill="url(#nodeTeal)"/>
+  <circle cx="705" cy="638" r="8" fill="white" fill-opacity="0.22"/>
+
+  <!-- Outer border ring -->
+  <rect width="1024" height="1024" rx="224" fill="none" stroke="#3DAEE9" stroke-width="6" stroke-opacity="0.22"/>
+</svg>
