@@ -5,7 +5,7 @@ import '../../core/constants/colors.dart';
 import '../../core/constants/dimensions.dart';
 import '../../core/constants/strings.dart';
 import '../../core/models/window_state.dart';
-import '../../core/services/credential_service.dart';
+import '../../providers/active_desktop_provider.dart';
 import '../../providers/ui_settings_provider.dart';
 import '../../providers/vps_connection_provider.dart';
 import '../../providers/vps_list_provider.dart';
@@ -24,21 +24,11 @@ class StartMenu extends ConsumerStatefulWidget {
 }
 
 class _StartMenuState extends ConsumerState<StartMenu> {
-  String? _selectedVpsId;
-  String? _expandedVpsId;     // vpsId whose inline actions are showing
   String? _expandedMenuLabel; // menu item label whose inline actions are showing
 
   @override
   Widget build(BuildContext context) {
     final vpsList = ref.watch(vpsListProvider);
-    final connected = vpsList.where((v) {
-      final conn = ref.watch(vpsConnectionProvider(v.id));
-      return conn.valueOrNull?.isConnected == true;
-    }).toList();
-
-    if (_selectedVpsId == null && connected.isNotEmpty) {
-      _selectedVpsId = connected.first.id;
-    }
 
     return Align(
       alignment: Alignment.bottomLeft,
@@ -73,158 +63,8 @@ class _StartMenuState extends ConsumerState<StartMenu> {
                   ),
                   const Divider(color: AetherColors.glassBorder, height: 1),
 
-                  // VPS list with connect/disconnect
-                  if (vpsList.isNotEmpty) ...[
-                    const _SectionLabel('Servers'),
-                    ...vpsList.map((v) {
-                      final conn = ref.watch(vpsConnectionProvider(v.id));
-                      final isConnected = conn.valueOrNull?.isConnected == true;
-                      final isConnecting = conn.isLoading;
-                      final isExpanded = _expandedVpsId == v.id;
-                      return Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          GestureDetector(
-                            onTap: () => setState(() {
-                              _expandedVpsId = isExpanded ? null : null;
-                              if (isConnected) _selectedVpsId = v.id;
-                            }),
-                            onLongPress: () => setState(() =>
-                                _expandedVpsId = isExpanded ? null : v.id),
-                            onSecondaryTap: () => setState(() =>
-                                _expandedVpsId = isExpanded ? null : v.id),
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 12, vertical: 6),
-                              child: Row(
-                                children: [
-                                  Icon(Icons.circle,
-                                      size: 7,
-                                      color: isConnected
-                                          ? AetherColors.accentTeal
-                                          : isConnecting
-                                              ? AetherColors.accentYellow
-                                              : AetherColors.textSecondary),
-                                  const SizedBox(width: 6),
-                                  Expanded(
-                                    child: Text(
-                                      v.label,
-                                      style: TextStyle(
-                                        color: isConnected
-                                            ? AetherColors.textPrimary
-                                            : AetherColors.textSecondary,
-                                        fontSize: 12,
-                                      ),
-                                    ),
-                                  ),
-                                  if (isConnecting)
-                                    const SizedBox(
-                                      width: 12,
-                                      height: 12,
-                                      child: CircularProgressIndicator(
-                                          strokeWidth: 1.5,
-                                          color: AetherColors.accent),
-                                    )
-                                  else if (isConnected)
-                                    GestureDetector(
-                                      onTap: () => ref
-                                          .read(vpsConnectionProvider(v.id).notifier)
-                                          .disconnect(),
-                                      child: const Icon(Icons.link_off,
-                                          size: 14,
-                                          color: AetherColors.textSecondary),
-                                    )
-                                  else
-                                    GestureDetector(
-                                      onTap: () => ref
-                                          .read(vpsConnectionProvider(v.id).notifier)
-                                          .connect(),
-                                      child: const Icon(Icons.link,
-                                          size: 14, color: AetherColors.accent),
-                                    ),
-                                ],
-                              ),
-                            ),
-                          ),
-                          if (isExpanded) ...[
-                            _InlineAction(
-                              icon: Icons.delete_outline,
-                              label: 'Delete VPS',
-                              color: AetherColors.accentRed,
-                              onTap: () async {
-                                final confirm = await showDialog<bool>(
-                                  context: context,
-                                  builder: (_) => AlertDialog(
-                                    backgroundColor: AetherColors.surfaceDeep,
-                                    title: const Text('Delete VPS',
-                                        style: TextStyle(color: AetherColors.textPrimary)),
-                                    content: Text(
-                                      'Are you sure you want to delete "${v.label}"? This cannot be undone.',
-                                      style: const TextStyle(color: AetherColors.textSecondary),
-                                    ),
-                                    actions: [
-                                      TextButton(
-                                        onPressed: () => Navigator.pop(context, false),
-                                        child: const Text('Cancel',
-                                            style: TextStyle(color: AetherColors.textSecondary)),
-                                      ),
-                                      TextButton(
-                                        onPressed: () => Navigator.pop(context, true),
-                                        child: const Text('Delete',
-                                            style: TextStyle(color: AetherColors.accentRed)),
-                                      ),
-                                    ],
-                                  ),
-                                );
-                                if (confirm != true) return;
-                                setState(() => _expandedVpsId = null);
-                                await ref.read(vpsConnectionProvider(v.id).notifier).disconnect();
-                                await ref.read(vpsListProvider.notifier).remove(v.id);
-                                await CredentialService().deleteAllCredentials(v.id);
-                                widget.onClose();
-                              },
-                            ),
-                          ],
-                        ],
-                      );
-                    }),
-                    const Divider(color: AetherColors.glassBorder, height: 1),
-                  ],
-
-                  // VPS selector for tools (connected only)
-                  if (connected.isNotEmpty) ...[
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
-                      child: DropdownButton<String>(
-                        value: _selectedVpsId,
-                        dropdownColor: AetherColors.surfaceDeep,
-                        style: const TextStyle(
-                            color: AetherColors.textPrimary, fontSize: 12),
-                        underline: const SizedBox.shrink(),
-                        isExpanded: true,
-                        items: connected
-                            .map((v) => DropdownMenuItem(
-                                  value: v.id,
-                                  child: Row(
-                                    children: [
-                                      const Icon(Icons.circle,
-                                          size: 8,
-                                          color: AetherColors.accentTeal),
-                                      const SizedBox(width: 6),
-                                      Text(v.label),
-                                    ],
-                                  ),
-                                ))
-                            .toList(),
-                        onChanged: (id) =>
-                            setState(() => _selectedVpsId = id),
-                      ),
-                    ),
-                    const Divider(color: AetherColors.glassBorder, height: 1),
-                  ],
-
                   // Tools section
-                  if (_selectedVpsId != null) ...[
+                  if (vpsList.isNotEmpty) ...[
                     const _SectionLabel('Tools'),
                     _MenuItem(
                       icon: Icons.terminal,
@@ -271,6 +111,19 @@ class _StartMenuState extends ConsumerState<StartMenu> {
 
                   // System section
                   const _SectionLabel('System'),
+                  _MenuItem(
+                    icon: Icons.grid_view_rounded,
+                    label: 'Servers',
+                    expanded: _expandedMenuLabel == 'Servers',
+                    onTap: () {
+                      widget.onClose();
+                      ref.read(activeDesktopProvider.notifier).state = null;
+                    },
+                    onLongPress: () => setState(() => _expandedMenuLabel =
+                        _expandedMenuLabel == 'Servers' ? null : 'Servers'),
+                    onSecondaryTap: () => setState(() => _expandedMenuLabel =
+                        _expandedMenuLabel == 'Servers' ? null : 'Servers'),
+                  ),
                   _MenuItem(
                     icon: ref.watch(fullscreenProvider)
                         ? Icons.fullscreen_exit
@@ -335,12 +188,13 @@ class _StartMenuState extends ConsumerState<StartMenu> {
 
   void _open(BuildContext context, WindowType type) {
     widget.onClose();
-    if (_selectedVpsId == null) return;
+    final activeVpsId = ref.read(activeDesktopProvider);
+    if (activeVpsId == null) return;
     final screen = MediaQuery.sizeOf(context);
     final windowId = type == WindowType.terminal
         ? _uuid.v4()
-        : '${_selectedVpsId}_${type.name}';
-    final vps = ref.read(vpsListProvider).firstWhere((v) => v.id == _selectedVpsId);
+        : '${activeVpsId}_${type.name}';
+    final vps = ref.read(vpsListProvider).firstWhere((v) => v.id == activeVpsId);
     final title = switch (type) {
       WindowType.terminal    => 'Terminal — ${vps.label}',
       WindowType.fileManager => 'Files — ${vps.label}',
@@ -353,7 +207,7 @@ class _StartMenuState extends ConsumerState<StartMenu> {
     ref.read(windowManagerProvider.notifier).openWindow(
       WindowManagerNotifier.makeWindow(
         windowId: windowId,
-        vpsId: _selectedVpsId!,
+        vpsId: activeVpsId,
         type: type,
         title: title,
         screen: screen,

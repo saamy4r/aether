@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:uuid/uuid.dart';
 import '../../core/constants/colors.dart';
 import '../../core/models/vps_model.dart';
 import '../../core/models/window_state.dart';
@@ -14,8 +13,9 @@ import '../common/sparkline.dart';
 /// Live desktop widget that shows CPU/RAM stats for a connected VPS.
 /// Tap to open the full Dashboard window.
 class VpsStatsWidget extends ConsumerWidget {
-  const VpsStatsWidget({super.key, required this.vps});
+  const VpsStatsWidget({super.key, required this.vps, this.onTap});
   final VpsModel vps;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -25,7 +25,7 @@ class VpsStatsWidget extends ConsumerWidget {
     if (!isConnected) return const SizedBox.shrink();
 
     return GestureDetector(
-      onTap: () => _openDashboard(context, ref),
+      onTap: onTap ?? () => _openDashboard(context, ref),
       child: GlassContainer(
         borderRadius: 16,
         blurSigma: 20,

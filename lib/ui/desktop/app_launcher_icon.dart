@@ -4,7 +4,6 @@ import 'package:uuid/uuid.dart';
 import '../../core/constants/colors.dart';
 import '../../core/constants/dimensions.dart';
 import '../../core/models/window_state.dart';
-import '../../providers/vps_connection_provider.dart';
 import '../../providers/vps_list_provider.dart';
 import '../../providers/window_manager_provider.dart';
 
@@ -16,11 +15,13 @@ class AppLauncherIcon extends ConsumerWidget {
     required this.icon,
     required this.label,
     required this.windowType,
+    required this.vpsId,
   });
 
   final IconData icon;
   final String label;
   final WindowType windowType;
+  final String vpsId;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -64,34 +65,28 @@ class AppLauncherIcon extends ConsumerWidget {
   }
 
   void _launch(BuildContext context, WidgetRef ref) {
-    // Find the first connected VPS
     final vpsList = ref.read(vpsListProvider);
-    final connectedVps = vpsList.firstWhere(
-      (v) =>
-          ref.read(vpsConnectionProvider(v.id)).valueOrNull?.isConnected ==
-          true,
-      orElse: () => vpsList.isEmpty ? throw StateError('No VPS') : vpsList.first,
-    );
+    final vps = vpsList.firstWhere((v) => v.id == vpsId);
 
     final screen = MediaQuery.sizeOf(context);
     final windowId = windowType == WindowType.terminal
         ? _uuid.v4()
-        : '${connectedVps.id}_${windowType.name}';
+        : '${vpsId}_${windowType.name}';
 
     final title = switch (windowType) {
-      WindowType.terminal    => 'Terminal — ${connectedVps.label}',
-      WindowType.fileManager => 'Files — ${connectedVps.label}',
-      WindowType.docker      => 'Docker — ${connectedVps.label}',
-      WindowType.dashboard   => 'Dashboard — ${connectedVps.label}',
+      WindowType.terminal    => 'Terminal — ${vps.label}',
+      WindowType.fileManager => 'Files — ${vps.label}',
+      WindowType.docker      => 'Docker — ${vps.label}',
+      WindowType.dashboard   => 'Dashboard — ${vps.label}',
       WindowType.dockerLogs  => 'Logs',
       WindowType.dockerShell => 'Shell',
-      WindowType.firewall    => 'Firewall — ${connectedVps.label}',
+      WindowType.firewall    => 'Firewall — ${vps.label}',
     };
 
     ref.read(windowManagerProvider.notifier).openWindow(
       WindowManagerNotifier.makeWindow(
         windowId: windowId,
-        vpsId: connectedVps.id,
+        vpsId: vpsId,
         type: windowType,
         title: title,
         screen: screen,

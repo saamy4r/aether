@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/constants/colors.dart';
 import '../../core/constants/dimensions.dart';
+import '../../core/models/window_state.dart';
+import '../../providers/active_desktop_provider.dart';
 import '../../providers/vps_connection_provider.dart';
 import '../../providers/vps_list_provider.dart';
 import '../../providers/window_manager_provider.dart';
@@ -23,11 +25,16 @@ class _TaskbarState extends ConsumerState<Taskbar> {
   Widget build(BuildContext context) {
     final windows = ref.watch(windowManagerProvider);
     final vpsList = ref.watch(vpsListProvider);
+    final activeVpsId = ref.watch(activeDesktopProvider);
 
     final connectedCount = vpsList.where((v) {
       final conn = ref.watch(vpsConnectionProvider(v.id));
       return conn.valueOrNull?.isConnected == true;
     }).length;
+
+    final visibleWindows = activeVpsId == null
+        ? <WindowState>[]
+        : windows.where((w) => w.vpsId == activeVpsId).toList();
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -65,12 +72,12 @@ class _TaskbarState extends ConsumerState<Taskbar> {
                     onTap: () =>
                         setState(() => _startMenuOpen = !_startMenuOpen),
                   ),
-                  // Window buttons (center)
+                  // Window buttons (center, scoped to active VPS)
                   Expanded(
                     child: SingleChildScrollView(
                       scrollDirection: Axis.horizontal,
                       child: Row(
-                        children: windows
+                        children: visibleWindows
                             .map((w) => TaskbarWindowButton(window: w))
                             .toList(),
                       ),
