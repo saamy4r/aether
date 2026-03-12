@@ -28,6 +28,7 @@ dependencies:
   uuid: ^4.5.1
   # Collection utilities
   collection: ^1.19.1
+  window_manager: ^0.5.1
 
 dev_dependencies:
   flutter_test:

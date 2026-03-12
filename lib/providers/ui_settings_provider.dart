@@ -1,5 +1,7 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:window_manager/window_manager.dart';
 
 final fullscreenProvider = StateNotifierProvider<FullscreenNotifier, bool>(
   (_) => FullscreenNotifier(),
@@ -8,22 +10,32 @@ final fullscreenProvider = StateNotifierProvider<FullscreenNotifier, bool>(
 class FullscreenNotifier extends StateNotifier<bool> {
   FullscreenNotifier() : super(false);
 
+  bool get _isDesktop =>
+      !kIsWeb &&
+      (defaultTargetPlatform == TargetPlatform.linux ||
+       defaultTargetPlatform == TargetPlatform.macOS ||
+       defaultTargetPlatform == TargetPlatform.windows);
+
   void toggle() {
     state = !state;
     _apply();
   }
 
-  void _apply() {
-    if (state) {
-      SystemChrome.setEnabledSystemUIMode(
-        SystemUiMode.manual,
-        overlays: [], // hide all system bars
-      );
+  Future<void> _apply() async {
+    if (_isDesktop) {
+      await windowManager.setFullScreen(state);
     } else {
-      SystemChrome.setEnabledSystemUIMode(
-        SystemUiMode.manual,
-        overlays: SystemUiOverlay.values, // restore all system bars
-      );
+      if (state) {
+        SystemChrome.setEnabledSystemUIMode(
+          SystemUiMode.manual,
+          overlays: [],
+        );
+      } else {
+        SystemChrome.setEnabledSystemUIMode(
+          SystemUiMode.manual,
+          overlays: SystemUiOverlay.values,
+        );
+      }
     }
   }
 }

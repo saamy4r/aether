@@ -130,60 +130,63 @@ class _VpsLobby extends ConsumerWidget {
     final vpsList = ref.watch(vpsListProvider);
 
     return Positioned.fill(
-      child: Center(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 40),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text(
-                'Your Servers',
-                style: TextStyle(
-                  color: AetherColors.textPrimary,
-                  fontSize: 22,
-                  fontWeight: FontWeight.w600,
-                  letterSpacing: 0.5,
-                ),
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(24, 40, 24, 40),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            const Text(
+              'Your Servers',
+              style: TextStyle(
+                color: AetherColors.textPrimary,
+                fontSize: 22,
+                fontWeight: FontWeight.w600,
+                letterSpacing: 0.5,
               ),
-              const SizedBox(height: 24),
+            ),
+            const SizedBox(height: 24),
 
-              ...vpsList.map((vps) => Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
-                    child: _LobbyVpsCard(vps: vps),
-                  )),
+            // Cards wrap into multiple rows/columns based on available width
+            Wrap(
+              spacing: 12,
+              runSpacing: 12,
+              alignment: WrapAlignment.center,
+              children: vpsList
+                  .map((vps) => _LobbyVpsCard(vps: vps))
+                  .toList(),
+            ),
 
-              const SizedBox(height: 8),
+            const SizedBox(height: 20),
 
-              GestureDetector(
-                onTap: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const AddVpsScreen()),
-                ),
-                child: GlassContainer(
-                  borderRadius: 12,
-                  blurSigma: 20,
-                  child: const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.add, color: AetherColors.accent, size: 18),
-                        SizedBox(width: 8),
-                        Text(
-                          'Add Server',
-                          style: TextStyle(
-                            color: AetherColors.accent,
-                            fontSize: 14,
-                            fontWeight: FontWeight.w500,
-                          ),
+            GestureDetector(
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const AddVpsScreen()),
+              ),
+              child: GlassContainer(
+                borderRadius: 12,
+                blurSigma: 20,
+                child: const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.add, color: AetherColors.accent, size: 18),
+                      SizedBox(width: 8),
+                      Text(
+                        'Add Server',
+                        style: TextStyle(
+                          color: AetherColors.accent,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
                         ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
                 ),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -341,9 +344,10 @@ class _ActiveDesktop extends ConsumerWidget {
 
     return Stack(
       children: [
-        // Layer 0 — Wallpaper (image if set, procedural otherwise) + long-press menu
+        // Layer 0 — Wallpaper + long-press (mobile) / right-click (desktop) menu
         GestureDetector(
           onLongPressStart: (d) => _showDesktopMenu(context, ref, d.globalPosition, imagePath != null),
+          onSecondaryTapDown: (d) => _showDesktopMenu(context, ref, d.globalPosition, imagePath != null),
           child: DesktopWallpaper(
             seed: seed,
             accentHue: accentHue,
