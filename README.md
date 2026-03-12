@@ -2,7 +2,7 @@
 
 A cross-platform VPS management app built with Flutter. Aether gives you a **glassmorphic desktop environment** on your phone or PC — manage multiple servers through SSH with floating windows, a live stats dashboard, terminal, file manager, Docker manager, and firewall tool.
 
-> Supports **Android** and **Linux**. iOS/macOS/Windows support is planned.
+> **v1.0.0** — Supports **Android** and **Linux**. Windows support requires building on a Windows machine (see below).
 
 ---
 
@@ -33,32 +33,61 @@ A cross-platform VPS management app built with Flutter. Aether gives you a **gla
 
 ### Android
 
-Download the latest `.apk` from the [Releases](../../releases) page, then:
+1. Go to the [Releases](../../releases) page and download `aether-v1.0.0.apk`
+2. On your Android device, go to **Settings → Apps → Install unknown apps** and allow your browser or file manager
+3. Open the downloaded `.apk` and tap **Install**
 
+Or install via ADB (USB debugging):
 ```bash
 adb install aether-v1.0.0.apk
 ```
 
-Or tap the `.apk` directly on your device (enable *Install from unknown sources* in Android settings first).
+> Minimum Android version: **5.0 (API 21)**
 
 ---
 
 ### Linux
 
-Download `aether-linux-v1.0.0.tar.gz` from the [Releases](../../releases) page:
+1. Go to the [Releases](../../releases) page and download `aether-linux-v1.0.0.tar.gz`
+2. Extract and run:
 
 ```bash
-tar -xzf aether-linux-v1.0.0.tar.gz
+tar -xzf aether-linux-v1.0.0.tar.gz -C aether/
 cd aether
 ./aether
 ```
 
-Optional — install system-wide:
-
+**Install system-wide (optional):**
 ```bash
 sudo cp -r aether /opt/aether
 sudo ln -s /opt/aether/aether /usr/local/bin/aether
 ```
+
+**Required runtime libraries** (install if the app doesn't launch):
+```bash
+# Ubuntu / Debian / Linux Mint
+sudo apt install libgtk-3-0 libblkid1 liblzma5
+
+# Fedora / RHEL
+sudo dnf install gtk3
+```
+
+---
+
+### Windows
+
+> Windows builds must be compiled on a Windows machine. Flutter does not support cross-compiling to Windows from Linux/macOS.
+
+On a Windows machine with Flutter installed:
+```powershell
+git clone https://github.com/saamy4r/aether.git
+cd aether
+flutter pub get
+flutter build windows --release
+# Output: build\windows\x64\runner\Release\
+```
+
+Zip the entire `Release\` folder and distribute it.
 
 ---
 
@@ -66,15 +95,16 @@ sudo ln -s /opt/aether/aether /usr/local/bin/aether
 
 ### Requirements
 
-- Flutter SDK `>=3.18.0` → [install](https://docs.flutter.dev/get-started/install)
-- Android: Android SDK / Android Studio
-- Linux build deps (Ubuntu/Debian/Mint):
+- **Flutter SDK** `>=3.18.0` → [install guide](https://docs.flutter.dev/get-started/install)
+- **Android:** Android Studio + Android SDK (API 21+)
+- **Linux build dependencies:**
 
 ```bash
-sudo apt install ninja-build cmake libgtk-3-dev pkg-config
+# Ubuntu / Debian / Linux Mint
+sudo apt install ninja-build cmake libgtk-3-dev pkg-config clang
 ```
 
-### Clone & run
+### Clone & run in debug mode
 
 ```bash
 git clone https://github.com/your-username/aether.git
@@ -82,28 +112,30 @@ cd aether
 flutter pub get
 
 flutter run -d linux              # Linux desktop
-flutter run -d <device-id>        # Android  (flutter devices to list)
+flutter run -d <device-id>        # Android — get ID with: flutter devices
 ```
 
-### Release builds
+### Build release binaries
 
 ```bash
 # Linux
 flutter build linux --release
 # Output: build/linux/x64/release/bundle/
 
-# Android APK
+# Android APK (sideload)
 flutter build apk --release
 # Output: build/app/outputs/flutter-apk/app-release.apk
 
-# Android App Bundle (Play Store)
+# Android App Bundle (Google Play)
 flutter build appbundle --release
 # Output: build/app/outputs/bundle/release/app-release.aab
+
+# Windows (must run on Windows)
+flutter build windows --release
+# Output: build\windows\x64\runner\Release\
 ```
 
----
-
-## Package for Release
+### Package for distribution
 
 **Linux:**
 ```bash
@@ -118,25 +150,30 @@ flutter build apk --release
 cp build/app/outputs/flutter-apk/app-release.apk ~/aether-v1.0.0.apk
 ```
 
-Upload both files as assets on the GitHub Releases page and tag the release `v1.0.0`.
+**Windows** *(on Windows)*:
+```powershell
+flutter build windows --release
+Compress-Archive -Path build\windows\x64\runner\Release\* -DestinationPath aether-windows-v1.0.0.zip
+```
 
 ---
 
 ## SSH Setup
 
-No agent or server-side software required — Aether connects directly over SSH.
+No agent or server-side software required. Aether connects directly to your VPS over SSH.
 
-1. Tap the login prompt → **Add Server**
-2. Enter your VPS IP, port, and username
-3. Choose **SSH Key** (recommended) — the app generates an Ed25519 key pair
-4. Copy the public key shown in the app to your server:
+1. Open Aether → tap the login prompt → **Add Server**
+2. Enter your server's IP address, SSH port (default: 22), and username
+3. Choose **SSH Key** (recommended) — Aether generates a unique Ed25519 key pair
+4. Copy the public key displayed in the app to your server:
    ```bash
-   echo "your-public-key" >> ~/.ssh/authorized_keys
+   echo "paste-public-key-here" >> ~/.ssh/authorized_keys
+   chmod 600 ~/.ssh/authorized_keys
    ```
-5. Tap **Test Connection** → **Save**
+5. Tap **Test Connection** to verify, then **Save**
 
 ---
 
 ## License
 
-MIT
+MIT — see [LICENSE](LICENSE)
