@@ -47,6 +47,35 @@ sudo mkdir -p "$INSTALL_DIR"
 sudo tar -xzf "$TMP/aether.tar.gz" -C "$INSTALL_DIR"
 sudo ln -sf "$INSTALL_DIR/aether" "$BIN_LINK"
 
+# Install icon
+ICON_SRC="$INSTALL_DIR/data/flutter_assets/assets/icon/icon.png"
+ICON_DEST="/usr/share/icons/hicolor/256x256/apps/aether.png"
+if [ -f "$ICON_SRC" ]; then
+  sudo mkdir -p "$(dirname "$ICON_DEST")"
+  sudo cp "$ICON_SRC" "$ICON_DEST"
+fi
+
+# Install .desktop file
+sudo tee /usr/share/applications/aether.desktop > /dev/null <<'DESKTOP'
+[Desktop Entry]
+Name=Aether
+Comment=VPS Desktop Environment over SSH
+Exec=/usr/local/bin/aether
+Icon=aether
+Type=Application
+Categories=Network;RemoteAccess;
+StartupNotify=true
+DESKTOP
+
+# Refresh icon cache and desktop database
+if command -v gtk-update-icon-cache &>/dev/null; then
+  sudo gtk-update-icon-cache -f -t /usr/share/icons/hicolor 2>/dev/null || true
+fi
+if command -v update-desktop-database &>/dev/null; then
+  sudo update-desktop-database /usr/share/applications 2>/dev/null || true
+fi
+
 echo ""
 echo "Aether installed successfully!"
 echo "Run it with: aether"
+echo "Or find it in your application menu."
