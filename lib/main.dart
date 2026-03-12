@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -12,7 +13,13 @@ void main() async {
        defaultTargetPlatform == TargetPlatform.windows)) {
     await windowManager.ensureInitialized();
     await windowManager.setTitle('Aether');
-    await windowManager.setIcon('assets/icon/icon.png');
+
+    // Flutter bundles assets at data/flutter_assets/ relative to the binary
+    final exeDir = File(Platform.resolvedExecutable).parent.path;
+    final iconPath = '$exeDir/data/flutter_assets/assets/icon/icon.png';
+    if (File(iconPath).existsSync()) {
+      await windowManager.setIcon(iconPath);
+    }
   }
   runApp(const ProviderScope(child: AetherApp()));
 }
