@@ -16,6 +16,22 @@ class ServiceManagerWindowContent extends ConsumerStatefulWidget {
 class _ServiceManagerWindowContentState
     extends ConsumerState<ServiceManagerWindowContent> {
   _Filter _filter = _Filter.all;
+  final _searchController = TextEditingController();
+  String _query = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _searchController.addListener(
+      () => setState(() => _query = _searchController.text.toLowerCase()),
+    );
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -43,7 +59,7 @@ class _ServiceManagerWindowContentState
       );
     }
 
-    final filtered = _applyFilter(state.services, _filter);
+    final filtered = _applyFilter(state.services, _filter, _query);
 
     return Column(
       children: [
@@ -57,6 +73,7 @@ class _ServiceManagerWindowContentState
           services: state.services,
           onChanged: (f) => setState(() => _filter = f),
         ),
+        _SearchBar(controller: _searchController),
         if (state.errorMessage != null)
           Container(
             color: AetherColors.accentRed.withValues(alpha: 0.12),
@@ -99,13 +116,79 @@ class _ServiceManagerWindowContentState
     );
   }
 
-  List<ServiceModel> _applyFilter(List<ServiceModel> all, _Filter f) =>
-      switch (f) {
-        _Filter.all      => all,
-        _Filter.active   => all.where((s) => s.activeState == ServiceActiveState.active).toList(),
-        _Filter.inactive => all.where((s) => s.isInactive).toList(),
-        _Filter.failed   => all.where((s) => s.isFailed).toList(),
-      };
+  List<ServiceModel> _applyFilter(List<ServiceModel> all, _Filter f, String query) {
+    var list = switch (f) {
+      _Filter.all      => all,
+      _Filter.active   => all.where((s) => s.activeState == ServiceActiveState.active).toList(),
+      _Filter.inactive => all.where((s) => s.isInactive).toList(),
+      _Filter.failed   => all.where((s) => s.isFailed).toList(),
+    };
+    if (query.isNotEmpty) {
+      list = list.where((s) =>
+        s.name.toLowerCase().contains(query) ||
+        s.description.toLowerCase().contains(query),
+      ).toList();
+    }
+    return list;
+  }
+}
+
+// ── Search bar ────────────────────────────────────────────────────────────────
+
+class _SearchBar extends StatelessWidget {
+  const _SearchBar({required this.controller});
+  final TextEditingController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(8, 0, 8, 6),
+      child: Container(
+        height: 28,
+        decoration: BoxDecoration(
+          color: AetherColors.glassBase,
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(color: AetherColors.glassBorder),
+        ),
+        child: Row(
+          children: [
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 8),
+              child: Icon(Icons.search, size: 13, color: AetherColors.textSecondary),
+            ),
+            Expanded(
+              child: TextField(
+                controller: controller,
+                style: const TextStyle(
+                    color: AetherColors.textPrimary, fontSize: 11),
+                decoration: const InputDecoration(
+                  hintText: 'Search services…',
+                  hintStyle: TextStyle(
+                      color: AetherColors.textSecondary, fontSize: 11),
+                  border: InputBorder.none,
+                  isDense: true,
+                  contentPadding: EdgeInsets.symmetric(vertical: 6),
+                ),
+              ),
+            ),
+            ValueListenableBuilder(
+              valueListenable: controller,
+              builder: (_, value, __) => value.text.isEmpty
+                  ? const SizedBox.shrink()
+                  : GestureDetector(
+                      onTap: controller.clear,
+                      child: const Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 8),
+                        child: Icon(Icons.close, size: 13,
+                            color: AetherColors.textSecondary),
+                      ),
+                    ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 // ── Control bar ──────────────────────────────────────────────────────────────
