@@ -103,7 +103,8 @@ class WindowManagerNotifier extends Notifier<List<WindowState>> {
       WindowType.docker      => (AetherDimensions.dockerW,      AetherDimensions.dockerH),
       WindowType.dockerLogs  => (AetherDimensions.dockerLogsW,  AetherDimensions.dockerLogsH),
       WindowType.dockerShell => (AetherDimensions.dockerShellW, AetherDimensions.dockerShellH),
-      WindowType.firewall    => (AetherDimensions.firewallW,    AetherDimensions.firewallH),
+      WindowType.firewall        => (AetherDimensions.firewallW,        AetherDimensions.firewallH),
+      WindowType.serviceManager  => (AetherDimensions.serviceManagerW,  AetherDimensions.serviceManagerH),
     };
     return WindowState(
       windowId: windowId,

@@ -34,6 +34,17 @@ abstract final class SshCommands {
   static String dockerLogs(String id)    => 'docker logs --follow --tail=100 $id';
   static const String dockerImagePrune   = 'docker image prune -f';
 
+  // ── Services (systemctl) ────────────────────────────────────────────────────
+  static const String systemctlDetect = 'which systemctl 2>/dev/null';
+  static const String systemctlListServices =
+      'LANG=C systemctl list-units --type=service --all --no-pager --no-legend';
+  static String serviceStart(String name)   => 'sudo systemctl start $name';
+  static String serviceStop(String name)    => 'sudo systemctl stop $name';
+  static String serviceRestart(String name) => 'sudo systemctl restart $name';
+  static String serviceReload(String name)  => 'sudo systemctl reload $name';
+  static String serviceEnable(String name)  => 'sudo systemctl enable $name';
+  static String serviceDisable(String name) => 'sudo systemctl disable $name';
+
   // ── Firewall (UFW) ──────────────────────────────────────────────────────────
   static const String ufwDetect = 'which ufw 2>/dev/null';
   static const String portScan  =

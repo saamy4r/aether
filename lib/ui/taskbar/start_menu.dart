@@ -106,6 +106,16 @@ class _StartMenuState extends ConsumerState<StartMenu> {
                       onSecondaryTap: () => setState(() => _expandedMenuLabel =
                           _expandedMenuLabel == AetherStrings.firewallManager ? null : AetherStrings.firewallManager),
                     ),
+                    _MenuItem(
+                      icon: Icons.settings_applications,
+                      label: AetherStrings.serviceManager,
+                      expanded: _expandedMenuLabel == AetherStrings.serviceManager,
+                      onTap: () => _open(context, WindowType.serviceManager),
+                      onLongPress: () => setState(() => _expandedMenuLabel =
+                          _expandedMenuLabel == AetherStrings.serviceManager ? null : AetherStrings.serviceManager),
+                      onSecondaryTap: () => setState(() => _expandedMenuLabel =
+                          _expandedMenuLabel == AetherStrings.serviceManager ? null : AetherStrings.serviceManager),
+                    ),
                     const Divider(color: AetherColors.glassBorder, height: 1),
                   ],
 
@@ -202,7 +212,8 @@ class _StartMenuState extends ConsumerState<StartMenu> {
       WindowType.dashboard   => 'Dashboard — ${vps.label}',
       WindowType.dockerLogs  => 'Logs',
       WindowType.dockerShell => 'Shell',
-      WindowType.firewall    => 'Firewall — ${vps.label}',
+      WindowType.firewall        => 'Firewall — ${vps.label}',
+      WindowType.serviceManager  => 'Services — ${vps.label}',
     };
     ref.read(windowManagerProvider.notifier).openWindow(
       WindowManagerNotifier.makeWindow(

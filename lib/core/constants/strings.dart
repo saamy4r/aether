@@ -32,6 +32,7 @@ abstract final class AetherStrings {
   static const String fileManager    = 'Files';
   static const String dockerManager   = 'Docker';
   static const String firewallManager = 'Firewall';
+  static const String serviceManager  = 'Services';
   static const String dashboard      = 'Dashboard';
   static const String deleteConfirm  = 'Are you sure you want to delete this?';
   static const String unlockAether   = 'Unlock Aether';

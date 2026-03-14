@@ -42,6 +42,11 @@ abstract final class AetherDimensions {
   static const double firewallMinW = 420.0;
   static const double firewallMinH = 320.0;
 
+  static const double serviceManagerW    = 580.0;
+  static const double serviceManagerH    = 460.0;
+  static const double serviceManagerMinW = 420.0;
+  static const double serviceManagerMinH = 320.0;
+
   // Desktop icon grid
   static const double iconSize       = 72.0;
   static const double iconLabelSize  = 12.0;
