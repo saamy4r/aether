@@ -7,11 +7,9 @@ import '../../core/constants/strings.dart';
 import '../../core/models/window_state.dart';
 import '../../providers/active_desktop_provider.dart';
 import '../../providers/ui_settings_provider.dart';
-import '../../providers/vps_connection_provider.dart';
 import '../../providers/vps_list_provider.dart';
 import '../../providers/window_manager_provider.dart';
 import '../common/glass_container.dart';
-import '../settings/add_vps_screen.dart';
 
 const _uuid = Uuid();
 
@@ -150,41 +148,6 @@ class _StartMenuState extends ConsumerState<StartMenu> {
                         _expandedMenuLabel == 'Fullscreen' ? null : 'Fullscreen'),
                     onSecondaryTap: () => setState(() => _expandedMenuLabel =
                         _expandedMenuLabel == 'Fullscreen' ? null : 'Fullscreen'),
-                  ),
-                  _MenuItem(
-                    icon: Icons.add,
-                    label: AetherStrings.addVps,
-                    expanded: _expandedMenuLabel == AetherStrings.addVps,
-                    onTap: () {
-                      widget.onClose();
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                            builder: (_) => const AddVpsScreen()),
-                      );
-                    },
-                    onLongPress: () => setState(() => _expandedMenuLabel =
-                        _expandedMenuLabel == AetherStrings.addVps ? null : AetherStrings.addVps),
-                    onSecondaryTap: () => setState(() => _expandedMenuLabel =
-                        _expandedMenuLabel == AetherStrings.addVps ? null : AetherStrings.addVps),
-                  ),
-                  _MenuItem(
-                    icon: Icons.link_off,
-                    label: AetherStrings.disconnectAll,
-                    expanded: _expandedMenuLabel == AetherStrings.disconnectAll,
-                    onTap: () {
-                      final vps = ref.read(vpsListProvider);
-                      for (final v in vps) {
-                        ref
-                            .read(vpsConnectionProvider(v.id).notifier)
-                            .disconnect();
-                      }
-                      widget.onClose();
-                    },
-                    onLongPress: () => setState(() => _expandedMenuLabel =
-                        _expandedMenuLabel == AetherStrings.disconnectAll ? null : AetherStrings.disconnectAll),
-                    onSecondaryTap: () => setState(() => _expandedMenuLabel =
-                        _expandedMenuLabel == AetherStrings.disconnectAll ? null : AetherStrings.disconnectAll),
                   ),
                   const SizedBox(height: 8),
                 ],
