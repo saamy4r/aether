@@ -197,25 +197,116 @@ class _LobbyVpsCard extends ConsumerWidget {
   const _LobbyVpsCard({required this.vps});
   final VpsModel vps;
 
+  void _showCardMenu(BuildContext context, WidgetRef ref) {
+    showMenu<_CardAction>(
+      context: context,
+      position: const RelativeRect.fromLTRB(0, 0, 0, 0),
+      color: const Color(0xFF1E2A3A),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(10),
+        side: const BorderSide(color: AetherColors.glassBorder),
+      ),
+      items: [
+        PopupMenuItem(
+          value: _CardAction.edit,
+          child: Row(children: [
+            const Icon(Icons.edit_outlined, size: 16, color: AetherColors.accent),
+            const SizedBox(width: 10),
+            Text('Edit', style: const TextStyle(color: AetherColors.textPrimary, fontSize: 13)),
+          ]),
+        ),
+        PopupMenuItem(
+          value: _CardAction.delete,
+          child: Row(children: [
+            const Icon(Icons.delete_outline, size: 16, color: AetherColors.accentRed),
+            const SizedBox(width: 10),
+            Text('Delete', style: const TextStyle(color: AetherColors.accentRed, fontSize: 13)),
+          ]),
+        ),
+      ],
+    ).then((action) async {
+      if (!context.mounted) return;
+      if (action == _CardAction.edit) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => AddVpsScreen(vpsToEdit: vps)),
+        );
+      } else if (action == _CardAction.delete) {
+        final confirm = await showDialog<bool>(
+          context: context,
+          builder: (_) => AlertDialog(
+            backgroundColor: const Color(0xFF1E2A3A),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+              side: const BorderSide(color: AetherColors.glassBorder),
+            ),
+            title: const Text('Delete server?',
+                style: TextStyle(color: AetherColors.textPrimary, fontSize: 15)),
+            content: Text(
+              'Remove "${vps.label}" from Aether? This cannot be undone.',
+              style: const TextStyle(color: AetherColors.textSecondary, fontSize: 13),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('Cancel',
+                    style: TextStyle(color: AetherColors.textSecondary)),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: const Text('Delete',
+                    style: TextStyle(color: AetherColors.accentRed)),
+              ),
+            ],
+          ),
+        );
+        if (confirm == true) {
+          ref.read(vpsConnectionProvider(vps.id).notifier).disconnect();
+          ref.read(vpsListProvider.notifier).remove(vps.id);
+        }
+      }
+    });
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final conn = ref.watch(vpsConnectionProvider(vps.id));
     final isConnected = conn.valueOrNull?.isConnected == true;
     final isConnecting = conn.isLoading;
+    final isError = conn.valueOrNull?.status == ConnectionStatus.error;
+    final errorMsg = conn.valueOrNull?.errorMessage;
 
     if (isConnected) {
-      // Full stats widget; tap enters the desktop for this VPS
-      return VpsStatsWidget(
-        vps: vps,
-        onTap: () => ref.read(activeDesktopProvider.notifier).state = vps.id,
+      return GestureDetector(
+        onLongPress: () => _showCardMenu(context, ref),
+        onSecondaryTap: () => _showCardMenu(context, ref),
+        child: VpsStatsWidget(
+          vps: vps,
+          onTap: () => ref.read(activeDesktopProvider.notifier).state = vps.id,
+        ),
       );
     }
 
-    // Disconnected / connecting card
+    // Determine status badge
+    final Color statusColor;
+    final String statusLabel;
+    if (isConnecting) {
+      statusColor = AetherColors.accentYellow;
+      statusLabel = 'Connecting…';
+    } else if (isError) {
+      statusColor = AetherColors.accentRed;
+      statusLabel = 'Error';
+    } else {
+      statusColor = AetherColors.textSecondary;
+      statusLabel = 'Not connected';
+    }
+
     return GestureDetector(
       onTap: isConnecting
           ? null
           : () => ref.read(vpsConnectionProvider(vps.id).notifier).connect(),
+      onLongPress: () => _showCardMenu(context, ref),
+      onSecondaryTap: () => _showCardMenu(context, ref),
       child: GlassContainer(
         borderRadius: 16,
         blurSigma: 20,
@@ -229,13 +320,7 @@ class _LobbyVpsCard extends ConsumerWidget {
               children: [
                 Row(
                   children: [
-                    Icon(
-                      Icons.circle,
-                      size: 7,
-                      color: isConnecting
-                          ? AetherColors.accentYellow
-                          : AetherColors.textSecondary,
-                    ),
+                    Icon(Icons.circle, size: 7, color: statusColor),
                     const SizedBox(width: 5),
                     Expanded(
                       child: Text(
@@ -254,9 +339,7 @@ class _LobbyVpsCard extends ConsumerWidget {
                 Text(
                   vps.host,
                   style: const TextStyle(
-                    color: AetherColors.textSecondary,
-                    fontSize: 10,
-                  ),
+                      color: AetherColors.textSecondary, fontSize: 10),
                   overflow: TextOverflow.ellipsis,
                 ),
                 const SizedBox(height: 8),
@@ -264,28 +347,38 @@ class _LobbyVpsCard extends ConsumerWidget {
                   padding:
                       const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                   decoration: BoxDecoration(
-                    color: AetherColors.glassBase,
+                    color: isError
+                        ? AetherColors.accentRed.withValues(alpha: 0.1)
+                        : AetherColors.glassBase,
                     borderRadius: BorderRadius.circular(6),
-                    border: Border.all(color: AetherColors.glassBorder),
+                    border: Border.all(
+                      color: isError
+                          ? AetherColors.accentRed.withValues(alpha: 0.4)
+                          : AetherColors.glassBorder,
+                    ),
                   ),
                   child: Text(
-                    isConnecting ? 'Connecting…' : 'Not connected',
-                    style: TextStyle(
-                      color: isConnecting
-                          ? AetherColors.accentYellow
-                          : AetherColors.textSecondary,
-                      fontSize: 10,
-                    ),
+                    statusLabel,
+                    style: TextStyle(color: statusColor, fontSize: 10),
                   ),
                 ),
+                // Show error detail so user knows what went wrong
+                if (isError && errorMsg != null) ...[
+                  const SizedBox(height: 6),
+                  Text(
+                    errorMsg,
+                    style: const TextStyle(
+                        color: AetherColors.accentRed, fontSize: 10),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
                 if (!isConnecting) ...[
                   const SizedBox(height: 8),
-                  const Text(
-                    'Tap to connect',
-                    style: TextStyle(
-                      color: AetherColors.accent,
-                      fontSize: 10,
-                    ),
+                  Text(
+                    isError ? 'Tap to retry' : 'Tap to connect',
+                    style: const TextStyle(
+                        color: AetherColors.accent, fontSize: 10),
                   ),
                 ],
               ],
@@ -296,6 +389,8 @@ class _LobbyVpsCard extends ConsumerWidget {
     );
   }
 }
+
+enum _CardAction { edit, delete }
 
 // Curated cool-toned hues so all procedural wallpapers look like space scenes
 const _wallpaperHues = [
