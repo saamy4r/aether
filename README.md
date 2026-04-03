@@ -6,8 +6,8 @@ A glassmorphic desktop environment for managing VPS servers over SSH — floatin
 
 ## Screenshots
 
-| Main | Desktop |
-|------|---------|
+| Server List | Desktop |
+|-------------|---------|
 | ![Main](Main.png) | ![Desktop](Desktop.png) |
 
 ---
