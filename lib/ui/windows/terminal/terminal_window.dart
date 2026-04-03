@@ -29,6 +29,13 @@ class _TerminalWindowContentState extends ConsumerState<TerminalWindowContent> {
 
   double _fontSize = _defaultFontSize;
   double _scaleStart = _defaultFontSize;
+  final TerminalController _controller = TerminalController();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
 
   void _zoom(double delta) {
     setState(() {
@@ -36,21 +43,103 @@ class _TerminalWindowContentState extends ConsumerState<TerminalWindowContent> {
     });
   }
 
+  String? _getSelectedText(Terminal terminal) {
+    final selection = _controller.selection;
+    if (selection == null) return null;
+    final text = terminal.buffer.getText(selection).trim();
+    return text.isEmpty ? null : text;
+  }
+
+  Future<void> _copy(Terminal terminal) async {
+    final text = _getSelectedText(terminal);
+    if (text == null) return;
+    await Clipboard.setData(ClipboardData(text: text));
+    _controller.clearSelection();
+  }
+
+  Future<void> _paste(Terminal terminal) async {
+    final data = await Clipboard.getData(Clipboard.kTextPlain);
+    final text = data?.text;
+    if (text != null && text.isNotEmpty) {
+      terminal.paste(text);
+    }
+  }
+
+  void _showContextMenu(BuildContext context, Offset position, Terminal terminal) {
+    final hasSelection = _getSelectedText(terminal) != null;
+    showMenu<_MenuAction>(
+      context: context,
+      position: RelativeRect.fromLTRB(
+        position.dx, position.dy, position.dx + 1, position.dy + 1,
+      ),
+      color: const Color(0xFF1E2A3A),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(8),
+        side: const BorderSide(color: Color(0x33FFFFFF)),
+      ),
+      items: [
+        PopupMenuItem(
+          value: _MenuAction.copy,
+          enabled: hasSelection,
+          child: _MenuEntry(
+            icon: Icons.copy_rounded,
+            label: 'Copy',
+            shortcut: 'Ctrl+C',
+            enabled: hasSelection,
+          ),
+        ),
+        PopupMenuItem(
+          value: _MenuAction.paste,
+          child: _MenuEntry(
+            icon: Icons.paste_rounded,
+            label: 'Paste',
+            shortcut: 'Ctrl+V',
+            enabled: true,
+          ),
+        ),
+      ],
+    ).then((action) {
+      if (action == _MenuAction.copy) _copy(terminal);
+      if (action == _MenuAction.paste) _paste(terminal);
+    });
+  }
+
   KeyEventResult _handleKeyEvent(FocusNode _, KeyEvent event) {
     if (event is! KeyDownEvent && event is! KeyRepeatEvent) {
       return KeyEventResult.ignored;
     }
-    if (!HardwareKeyboard.instance.isControlPressed) {
-      return KeyEventResult.ignored;
-    }
+    final ctrl = HardwareKeyboard.instance.isControlPressed;
+    if (!ctrl) return KeyEventResult.ignored;
+
+    // Ctrl+= / Ctrl++ → zoom in
     if (event.logicalKey == LogicalKeyboardKey.equal ||
         event.logicalKey == LogicalKeyboardKey.numpadAdd) {
       _zoom(1);
       return KeyEventResult.handled;
     }
+    // Ctrl+- → zoom out
     if (event.logicalKey == LogicalKeyboardKey.minus ||
         event.logicalKey == LogicalKeyboardKey.numpadSubtract) {
       _zoom(-1);
+      return KeyEventResult.handled;
+    }
+    // Ctrl+C → copy selection if any, otherwise let xterm send SIGINT
+    if (event.logicalKey == LogicalKeyboardKey.keyC) {
+      final state = ref.read(
+        terminalProvider((windowId: widget.windowId, vpsId: widget.vpsId)),
+      );
+      final text = _getSelectedText(state.terminal);
+      if (text != null) {
+        _copy(state.terminal);
+        return KeyEventResult.handled;
+      }
+    }
+    // Ctrl+V → paste
+    if (event.logicalKey == LogicalKeyboardKey.keyV) {
+      final state = ref.read(
+        terminalProvider((windowId: widget.windowId, vpsId: widget.vpsId)),
+      );
+      _paste(state.terminal);
       return KeyEventResult.handled;
     }
     return KeyEventResult.ignored;
@@ -76,12 +165,15 @@ class _TerminalWindowContentState extends ConsumerState<TerminalWindowContent> {
       onKeyEvent: _handleKeyEvent,
       child: TerminalView(
         state.terminal,
+        controller: _controller,
         theme: _aetherTerminalTheme,
         textStyle: TerminalStyle(fontSize: _fontSize),
         autofocus: true,
         backgroundOpacity: 0,
         keyboardType: TextInputType.visiblePassword,
-        onSecondaryTapDown: (_, __) {},
+        onSecondaryTapDown: (details, __) {
+          _showContextMenu(context, details.globalPosition, state.terminal);
+        },
       ),
     );
 
@@ -106,7 +198,7 @@ class _TerminalWindowContentState extends ConsumerState<TerminalWindowContent> {
         Expanded(
           child: Stack(
             children: [
-              // Pinch-to-zoom on mobile
+              // Pinch-to-zoom on mobile; long-press for context menu
               GestureDetector(
                 onScaleStart: (_) => _scaleStart = _fontSize,
                 onScaleUpdate: (details) {
@@ -116,10 +208,13 @@ class _TerminalWindowContentState extends ConsumerState<TerminalWindowContent> {
                         .clamp(_minFontSize, _maxFontSize);
                   });
                 },
+                onLongPressStart: (details) {
+                  _showContextMenu(
+                      context, details.globalPosition, state.terminal);
+                },
                 child: terminalView,
               ),
-              // Ctrl+scroll zoom overlay — positioned on top so it catches
-              // scroll events before TerminalView consumes them
+              // Ctrl+scroll zoom overlay
               Positioned.fill(
                 child: Listener(
                   behavior: HitTestBehavior.translucent,
@@ -135,7 +230,44 @@ class _TerminalWindowContentState extends ConsumerState<TerminalWindowContent> {
             ],
           ),
         ),
-        _MobileKeyboardToolbar(terminal: state.terminal),
+        _MobileKeyboardToolbar(
+          terminal: state.terminal,
+          onPaste: () => _paste(state.terminal),
+        ),
+      ],
+    );
+  }
+}
+
+enum _MenuAction { copy, paste }
+
+class _MenuEntry extends StatelessWidget {
+  const _MenuEntry({
+    required this.icon,
+    required this.label,
+    required this.shortcut,
+    required this.enabled,
+  });
+  final IconData icon;
+  final String label;
+  final String shortcut;
+  final bool enabled;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = enabled ? AetherColors.textPrimary : AetherColors.textSecondary;
+    return Row(
+      children: [
+        Icon(icon, size: 16, color: color),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Text(label,
+              style: TextStyle(color: color, fontSize: 13)),
+        ),
+        Text(shortcut,
+            style: TextStyle(
+                color: AetherColors.textSecondary,
+                fontSize: 11)),
       ],
     );
   }
@@ -168,8 +300,12 @@ const _aetherTerminalTheme = TerminalTheme(
 );
 
 class _MobileKeyboardToolbar extends StatelessWidget {
-  const _MobileKeyboardToolbar({required this.terminal});
+  const _MobileKeyboardToolbar({
+    required this.terminal,
+    required this.onPaste,
+  });
   final Terminal terminal;
+  final VoidCallback onPaste;
 
   @override
   Widget build(BuildContext context) {
@@ -182,15 +318,16 @@ class _MobileKeyboardToolbar extends StatelessWidget {
         scrollDirection: Axis.horizontal,
         child: Row(
           children: [
-            _Key('Tab',  () => terminal.keyInput(TerminalKey.tab)),
-            _Key('Esc',  () => terminal.keyInput(TerminalKey.escape)),
-            _Key('Ctrl', () => terminal.keyInput(TerminalKey.controlLeft)),
-            _Key('↑',    () => terminal.keyInput(TerminalKey.arrowUp)),
-            _Key('↓',    () => terminal.keyInput(TerminalKey.arrowDown)),
-            _Key('←',    () => terminal.keyInput(TerminalKey.arrowLeft)),
-            _Key('→',    () => terminal.keyInput(TerminalKey.arrowRight)),
-            _Key('Home', () => terminal.keyInput(TerminalKey.home)),
-            _Key('End',  () => terminal.keyInput(TerminalKey.end)),
+            _Key('Tab',   () => terminal.keyInput(TerminalKey.tab)),
+            _Key('Esc',   () => terminal.keyInput(TerminalKey.escape)),
+            _Key('Ctrl',  () => terminal.keyInput(TerminalKey.controlLeft)),
+            _Key('↑',     () => terminal.keyInput(TerminalKey.arrowUp)),
+            _Key('↓',     () => terminal.keyInput(TerminalKey.arrowDown)),
+            _Key('←',     () => terminal.keyInput(TerminalKey.arrowLeft)),
+            _Key('→',     () => terminal.keyInput(TerminalKey.arrowRight)),
+            _Key('Home',  () => terminal.keyInput(TerminalKey.home)),
+            _Key('End',   () => terminal.keyInput(TerminalKey.end)),
+            _Key('Paste', onPaste),
           ],
         ),
       ),

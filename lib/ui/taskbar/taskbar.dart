@@ -40,8 +40,12 @@ class _TaskbarState extends ConsumerState<Taskbar> {
       mainAxisSize: MainAxisSize.min,
       children: [
         if (_startMenuOpen)
-          StartMenu(
-            onClose: () => setState(() => _startMenuOpen = false),
+          TapRegion(
+            groupId: 'startMenu',
+            onTapOutside: (_) => setState(() => _startMenuOpen = false),
+            child: StartMenu(
+              onClose: () => setState(() => _startMenuOpen = false),
+            ),
           ),
         ClipRect(
           child: BackdropFilter(
@@ -67,10 +71,13 @@ class _TaskbarState extends ConsumerState<Taskbar> {
               child: Row(
                 children: [
                   // Start Menu button
-                  _StartButton(
-                    isOpen: _startMenuOpen,
-                    onTap: () =>
-                        setState(() => _startMenuOpen = !_startMenuOpen),
+                  TapRegion(
+                    groupId: 'startMenu',
+                    child: _StartButton(
+                      isOpen: _startMenuOpen,
+                      onTap: () =>
+                          setState(() => _startMenuOpen = !_startMenuOpen),
+                    ),
                   ),
                   // Window buttons (center, scoped to active VPS)
                   Expanded(
