@@ -16,8 +16,8 @@ A glassmorphic desktop environment for managing VPS servers over SSH — floatin
 
 | Platform | Link |
 |----------|------|
-| 📱 Android APK | [**Download APK**](../../releases/latest/download/aether-v1.0.0.apk) |
-| 🐧 Linux | [**Download Linux**](../../releases/latest/download/aether-linux-v1.0.0.tar.gz) |
+| 📱 Android APK | [**Download APK**](../../releases/latest/download/aether.apk) |
+| 🐧 Linux | [**Download Linux**](../../releases/latest/download/aether-linux.tar.gz) |
 
 ---
 
