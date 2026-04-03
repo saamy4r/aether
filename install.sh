@@ -19,7 +19,7 @@ if [ -z "$LATEST" ]; then
 fi
 
 echo "Found release: $LATEST"
-URL="https://github.com/$REPO/releases/download/$LATEST/aether-linux-$LATEST.tar.gz"
+URL="https://github.com/$REPO/releases/download/$LATEST/aether-linux.tar.gz"
 
 TMP=$(mktemp -d)
 trap 'rm -rf "$TMP"' EXIT
@@ -44,7 +44,7 @@ fi
 
 echo "Installing to $INSTALL_DIR ..."
 sudo mkdir -p "$INSTALL_DIR"
-sudo tar -xzf "$TMP/aether.tar.gz" -C "$INSTALL_DIR"
+sudo tar -xzf "$TMP/aether.tar.gz" --strip-components=1 -C "$INSTALL_DIR"
 sudo ln -sf "$INSTALL_DIR/aether" "$BIN_LINK"
 
 # Install icon
