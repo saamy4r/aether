@@ -1,7 +1,7 @@
 name: aether
 description: "A Mobile Desktop Environment for managing VPS servers over SSH."
 publish_to: 'none'
-version: 1.1.0+4
+version: 1.1.1+5
 
 environment:
   sdk: ^3.9.2
