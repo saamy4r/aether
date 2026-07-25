@@ -4,6 +4,7 @@ import '../../core/constants/colors.dart';
 import '../../core/models/vps_model.dart';
 import '../../core/models/window_state.dart';
 import '../../providers/dashboard_provider.dart';
+import '../../providers/glass_settings_provider.dart';
 import '../../providers/vps_connection_provider.dart';
 import '../../providers/window_manager_provider.dart';
 import '../common/gauge_arc.dart';
@@ -24,11 +25,13 @@ class VpsStatsWidget extends ConsumerWidget {
 
     if (!isConnected) return const SizedBox.shrink();
 
+    final glass = ref.watch(glassSettingsProvider);
     return GestureDetector(
       onTap: onTap ?? () => _openDashboard(context, ref),
       child: GlassContainer(
         borderRadius: 16,
-        blurSigma: 20,
+        color: glass.windowColor,
+        blurSigma: glass.blur,
         child: SizedBox(
           width: 200,
           child: Padding(

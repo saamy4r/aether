@@ -7,6 +7,7 @@ import '../../core/models/vps_model.dart';
 import '../../core/models/window_state.dart';
 import '../../providers/active_desktop_provider.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/glass_settings_provider.dart';
 import '../../providers/ui_settings_provider.dart';
 import '../../providers/vps_connection_provider.dart';
 import '../../providers/vps_list_provider.dart';
@@ -597,7 +598,8 @@ class _DesktopContextMenu extends ConsumerWidget {
             color: Colors.transparent,
             child: GlassContainer(
               borderRadius: 12,
-              blurSigma: 28,
+              color: ref.watch(glassSettingsProvider).windowColor,
+              blurSigma: ref.watch(glassSettingsProvider).blur,
               child: Padding(
                 padding: const EdgeInsets.symmetric(vertical: _vertPad),
                 child: Column(

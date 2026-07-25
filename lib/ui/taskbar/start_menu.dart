@@ -6,6 +6,7 @@ import '../../core/constants/dimensions.dart';
 import '../../core/constants/strings.dart';
 import '../../core/models/window_state.dart';
 import '../../providers/active_desktop_provider.dart';
+import '../../providers/glass_settings_provider.dart';
 import '../../providers/ui_settings_provider.dart';
 import '../../providers/vps_list_provider.dart';
 import '../../providers/window_manager_provider.dart';
@@ -27,13 +28,15 @@ class _StartMenuState extends ConsumerState<StartMenu> {
   @override
   Widget build(BuildContext context) {
     final vpsList = ref.watch(vpsListProvider);
+    final glass = ref.watch(glassSettingsProvider);
 
     return Align(
       alignment: Alignment.bottomLeft,
       child: SizedBox(
           width: AetherDimensions.startMenuWidth,
           child: GlassContainer(
-            blurSigma: AetherGlass.startMenuBlur,
+            color: glass.windowColor,
+            blurSigma: glass.blur,
             borderRadius: AetherGlass.startMenuRadius,
             child: ConstrainedBox(
               constraints: BoxConstraints(

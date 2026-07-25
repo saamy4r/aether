@@ -12,12 +12,12 @@ class GlassSettings {
   const GlassSettings({
     this.opacity = defaultOpacity,
     this.blur = defaultBlur,
-    this.darkGlass = false,
+    this.darkGlass = defaultDarkGlass,
   });
 
-  // 0x14 alpha of AetherColors.glassBase ≈ 8%
-  static const double defaultOpacity = 0.08;
-  static const double defaultBlur = AetherGlass.windowBlur;
+  static const double defaultOpacity = 0.65;
+  static const double defaultBlur = 10.0;
+  static const bool defaultDarkGlass = true;
 
   static const double minOpacity = 0.02;
   static const double maxOpacity = 1.0;
@@ -60,7 +60,7 @@ class GlassSettingsNotifier extends Notifier<GlassSettings> {
           .clamp(GlassSettings.minOpacity, GlassSettings.maxOpacity),
       blur: (prefs.getDouble(_kBlurKey) ?? GlassSettings.defaultBlur)
           .clamp(0.0, GlassSettings.maxBlur),
-      darkGlass: prefs.getBool(_kDarkKey) ?? false,
+      darkGlass: prefs.getBool(_kDarkKey) ?? GlassSettings.defaultDarkGlass,
     );
   }
 
