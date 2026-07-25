@@ -4,6 +4,20 @@ A glassmorphic desktop environment for managing VPS servers over SSH — floatin
 
 ---
 
+## Features
+
+- 🪟 Floating, draggable, resizable glass windows with a taskbar and start menu
+- 📊 Live dashboard — CPU, memory, disk, network, load and uptime
+- 💻 Full terminal emulator, plus Docker container shells and logs
+- 📁 SFTP file manager — upload, download, rename, zip/unzip
+- 🐳 Docker manager — start/stop/restart/pause containers, prune images
+- 🔥 Firewall (UFW) manager with live open-port scan
+- ⚙️ systemd service manager
+- 🎨 Appearance settings — window opacity, blur intensity and dark glass tint, so windows stay readable on any wallpaper
+- 🔐 Credentials in secure storage, optional biometric app lock
+
+---
+
 ## Screenshots
 
 | Server List | Desktop |
