@@ -85,8 +85,9 @@ class _FileManagerWindowContentState
         // Clear focus + selection when navigating to a different folder
         if (_lastPath != state.currentPath) {
           _lastPath = state.currentPath;
-          WidgetsBinding.instance
-              .addPostFrameCallback((_) => _clearFocusAndSelection());
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) _clearFocusAndSelection();
+          });
         }
 
         final entries = _searchQuery.isEmpty
@@ -859,7 +860,7 @@ void _showNameDialog(
         ),
       ],
     ),
-  );
+  ).then((_) => controller.dispose());
 }
 
 void _showRenameDialog(
@@ -907,7 +908,7 @@ void _showRenameDialog(
         ),
       ],
     ),
-  );
+  ).then((_) => controller.dispose());
 }
 
 void _showDeleteDialog(BuildContext context, List<String> targets,

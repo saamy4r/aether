@@ -19,23 +19,28 @@ class DockerState {
   final bool isLoading;
   final String? errorMessage;
 
+  static const Object _keep = Object();
+
   DockerState copyWith({
     List<DockerContainer>? containers,
     List<DockerImage>? images,
     bool? isAvailable,
     bool? isLoading,
-    String? errorMessage,
+    Object? errorMessage = _keep,
   }) => DockerState(
     containers: containers ?? this.containers,
     images: images ?? this.images,
     isAvailable: isAvailable ?? this.isAvailable,
     isLoading: isLoading ?? this.isLoading,
-    errorMessage: errorMessage,
+    errorMessage: identical(errorMessage, _keep)
+        ? this.errorMessage
+        : errorMessage as String?,
   );
 }
 
 class DockerNotifier extends FamilyNotifier<DockerState, String> {
   Timer? _timer;
+  bool _refreshing = false;
 
   String get vpsId => arg;
 
@@ -49,7 +54,8 @@ class DockerNotifier extends FamilyNotifier<DockerState, String> {
   Future<void> _detectAndLoad() async {
     final notifier = ref.read(vpsConnectionProvider(vpsId).notifier);
     try {
-      final detectOut = await notifier.exec(SshCommands.dockerDetect);
+      final detectOut =
+          await notifier.exec(SshCommands.dockerDetect, checkExitCode: false);
       if (!DockerParser.isDockerAvailable(detectOut)) {
         state = state.copyWith(isAvailable: false, isLoading: false);
         return;
@@ -69,15 +75,17 @@ class DockerNotifier extends FamilyNotifier<DockerState, String> {
   }
 
   Future<void> _refresh() async {
+    final conn = ref.read(vpsConnectionProvider(vpsId));
+    if (_refreshing || conn.valueOrNull?.isConnected != true) return;
+    _refreshing = true;
     final notifier = ref.read(vpsConnectionProvider(vpsId).notifier);
     try {
-      final [containersOut, imagesOut] = await Future.wait([
-        notifier.exec(SshCommands.dockerContainers),
-        notifier.exec(SshCommands.dockerImages),
-      ]);
+      final out = await notifier.exec(SshCommands.dockerOverview);
+      final sections = out.split(SshCommands.sectionSplit);
       state = state.copyWith(
-        containers: DockerParser.parseContainers(containersOut),
-        images: DockerParser.parseImages(imagesOut),
+        containers: DockerParser.parseContainers(sections.first),
+        images: DockerParser.parseImages(
+            sections.length > 1 ? sections[1] : ''),
         isLoading: false,
         errorMessage: null,
       );
@@ -86,6 +94,8 @@ class DockerNotifier extends FamilyNotifier<DockerState, String> {
         isLoading: false,
         errorMessage: 'Refresh failed: $e',
       );
+    } finally {
+      _refreshing = false;
     }
   }
 

@@ -13,12 +13,15 @@ class ServiceNotifier extends FamilyNotifier<ServiceState, String> {
     return const ServiceState();
   }
 
-  Future<String> _exec(String cmd) =>
-      ref.read(vpsConnectionProvider(vpsId).notifier).exec(cmd);
+  Future<String> _exec(String cmd, {bool checkExitCode = true}) =>
+      ref
+          .read(vpsConnectionProvider(vpsId).notifier)
+          .exec(cmd, checkExitCode: checkExitCode);
 
   Future<void> _detectAndLoad() async {
     try {
-      final which = await _exec(SshCommands.systemctlDetect);
+      final which =
+          await _exec(SshCommands.systemctlDetect, checkExitCode: false);
       if (!ServiceParser.isAvailable(which)) {
         state = state.copyWith(isAvailable: false, isLoading: false);
         return;

@@ -314,12 +314,13 @@ class _AddVpsScreenState extends ConsumerState<AddVpsScreen> {
     setState(() => _isGeneratingKey = true);
     try {
       final result = await SshKeyService.generateEd25519();
+      if (!mounted) return;
       setState(() {
         _keyCtrl.text = result.privateKeyPem;
         _publicKey = result.publicKeyOpenSsh;
       });
     } finally {
-      setState(() => _isGeneratingKey = false);
+      if (mounted) setState(() => _isGeneratingKey = false);
     }
   }
 
@@ -359,20 +360,24 @@ class _AddVpsScreenState extends ConsumerState<AddVpsScreen> {
       );
 
       await client.authenticated;
-      setState(() => _testResult = '✓ Connection successful');
+      if (mounted) setState(() => _testResult = '✓ Connection successful');
     } on SocketException {
-      setState(() => _testResult = '✗ Cannot reach server. Check your network.');
+      if (mounted) {
+        setState(() => _testResult = '✗ Cannot reach server. Check your network.');
+      }
     } on TimeoutException {
-      setState(() => _testResult = '✗ Connection timed out.');
+      if (mounted) setState(() => _testResult = '✗ Connection timed out.');
     } on SSHAuthFailError {
-      setState(() => _testResult = '✗ Authentication failed. Check credentials.');
+      if (mounted) {
+        setState(() => _testResult = '✗ Authentication failed. Check credentials.');
+      }
     } on SSHAuthAbortError {
-      setState(() => _testResult = '✗ Authentication aborted.');
+      if (mounted) setState(() => _testResult = '✗ Authentication aborted.');
     } catch (e) {
-      setState(() => _testResult = '✗ $e');
+      if (mounted) setState(() => _testResult = '✗ $e');
     } finally {
       client?.close();
-      setState(() => _isTesting = false);
+      if (mounted) setState(() => _isTesting = false);
     }
   }
 

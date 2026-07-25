@@ -24,10 +24,11 @@ class DockerContainer {
     final parts = line.split('\t');
     final statusRaw = parts.length > 3 ? parts[3] : '';
     ContainerStatus status;
-    if (statusRaw.startsWith('Up')) {
-      status = ContainerStatus.running;
-    } else if (statusRaw.startsWith('Pause')) {
+    // Paused shows as "Up 2 hours (Paused)" — check before the Up prefix
+    if (statusRaw.contains('(Paused)')) {
       status = ContainerStatus.paused;
+    } else if (statusRaw.startsWith('Up')) {
+      status = ContainerStatus.running;
     } else if (statusRaw.startsWith('Exited')) {
       status = ContainerStatus.exited;
     } else {

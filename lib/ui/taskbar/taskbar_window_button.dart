@@ -6,8 +6,13 @@ import '../../core/models/window_state.dart';
 import '../../providers/window_manager_provider.dart';
 
 class TaskbarWindowButton extends ConsumerWidget {
-  const TaskbarWindowButton({super.key, required this.window});
+  const TaskbarWindowButton({
+    super.key,
+    required this.window,
+    required this.isActive,
+  });
   final WindowState window;
+  final bool isActive;
 
   IconData get _icon => switch (window.type) {
     WindowType.dashboard   => Icons.monitor_heart,
@@ -22,11 +27,6 @@ class TaskbarWindowButton extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final allWindows = ref.watch(windowManagerProvider);
-    final isActive = allWindows
-        .where((w) => !w.isMinimized)
-        .fold<int>(0, (max, w) => w.zIndex > max ? w.zIndex : max) == window.zIndex;
-
     return GestureDetector(
       onTap: () {
         if (window.isMinimized) {

@@ -54,13 +54,21 @@ class VpsModel {
     'iconY': iconY,
   };
 
+  /// Tolerant of malformed stored JSON so one corrupt entry can't crash the
+  /// whole list load. An entry with no usable id should be discarded by the
+  /// caller.
   factory VpsModel.fromJson(Map<String, dynamic> json) => VpsModel(
-    id: json['id'] as String,
-    label: json['label'] as String,
-    host: json['host'] as String,
-    port: json['port'] as int,
-    username: json['username'] as String,
-    authMethod: AuthMethod.values.byName(json['authMethod'] as String),
+    id: json['id']?.toString() ?? '',
+    label: json['label']?.toString() ?? '',
+    host: json['host']?.toString() ?? '',
+    port: switch (json['port']) {
+      final int p => p,
+      final String s => int.tryParse(s) ?? 22,
+      _ => 22,
+    },
+    username: json['username']?.toString() ?? '',
+    authMethod: AuthMethod.values.asNameMap()[json['authMethod']] ??
+        AuthMethod.key,
     iconX: (json['iconX'] as num?)?.toDouble(),
     iconY: (json['iconY'] as num?)?.toDouble(),
   );

@@ -23,14 +23,25 @@ class WindowFrame extends ConsumerStatefulWidget {
 }
 
 class _WindowFrameState extends ConsumerState<WindowFrame> {
-  Offset _dragDelta = Offset.zero;
-  bool _isDragging = false;
+  // Live drag/resize deltas. Pointer moves only update these notifiers, so a
+  // drag re-positions the window via the ListenableBuilder below without
+  // rebuilding the frame subtree (glass blur + window content) every frame.
+  // The result is committed to windowManagerProvider once, on pan end.
+  final _dragDelta = ValueNotifier<Offset>(Offset.zero);
+  final _resizeDelta = ValueNotifier<Offset>(Offset.zero);
   bool _bodyDragEnabled = false;
   bool _isMaximized = false;
   // Saved geometry before maximize
   double? _savedX, _savedY, _savedW, _savedH;
 
   WindowState get ws => widget.windowState;
+
+  @override
+  void dispose() {
+    _dragDelta.dispose();
+    _resizeDelta.dispose();
+    super.dispose();
+  }
 
   (double minW, double minH) get _minSize => switch (ws.type) {
     WindowType.dashboard   => (AetherDimensions.dashboardMinW,   AetherDimensions.dashboardMinH),
@@ -93,71 +104,98 @@ class _WindowFrameState extends ConsumerState<WindowFrame> {
   @override
   Widget build(BuildContext context) {
     final screen = MediaQuery.sizeOf(context);
-    final x = _isDragging ? (ws.x + _dragDelta.dx) : ws.x;
-    final y = _isDragging ? (ws.y + _dragDelta.dy) : ws.y;
+    final (minW, minH) = _minSize;
+    final maxW = screen.width;
+    final maxH = screen.height - AetherDimensions.taskbarHeight;
 
-    void onPanStart(_) => setState(() => _isDragging = true);
     void onPanUpdate(DragUpdateDetails d) =>
-        setState(() => _dragDelta += d.delta);
+        _dragDelta.value += d.delta;
     void onPanEnd(DragEndDetails _) {
       ref.read(windowManagerProvider.notifier).moveWindow(
         ws.windowId,
-        _dragDelta,
+        _dragDelta.value,
         screen,
         AetherDimensions.taskbarHeight,
       );
-      setState(() {
-        _isDragging = false;
-        _dragDelta = Offset.zero;
-        _bodyDragEnabled = false;
-      });
+      _dragDelta.value = Offset.zero;
+      if (_bodyDragEnabled) setState(() => _bodyDragEnabled = false);
     }
 
-    return Positioned(
-      left: x,
-      top: y,
-      width: ws.width,
-      height: ws.height,
-      child: GestureDetector(
-        onTap: () {
-          ref.read(windowManagerProvider.notifier).focusWindow(ws.windowId);
-          if (_bodyDragEnabled) setState(() => _bodyDragEnabled = false);
-        },
-        onDoubleTap: () => setState(() => _bodyDragEnabled = true),
-        onPanStart: _bodyDragEnabled ? onPanStart : null,
-        onPanUpdate: _bodyDragEnabled ? onPanUpdate : null,
-        onPanEnd: _bodyDragEnabled ? onPanEnd : null,
-        child: GlassContainer(
-          child: Column(
-            children: [
-              // Title bar — always draggable
-              GestureDetector(
-                onPanStart: onPanStart,
-                onPanUpdate: onPanUpdate,
-                onPanEnd: onPanEnd,
-                child: WindowTitleBar(
-                  title: ws.title,
-                  icon: _icon,
-                  dragging: _bodyDragEnabled,
-                  onMinimize: () => ref
-                      .read(windowManagerProvider.notifier)
-                      .minimizeWindow(ws.windowId),
-                  onMaximize: () => _toggleMaximize(screen),
-                  onClose: () => ref
-                      .read(windowManagerProvider.notifier)
-                      .closeWindow(ws.windowId),
-                ),
+    void onResizeUpdate(Offset d) {
+      // Keep the live size inside [min, max] so the accumulated delta never
+      // builds up an invisible overshoot.
+      final v = _resizeDelta.value + d;
+      final w = (ws.width + v.dx).clamp(minW, maxW);
+      final h = (ws.height + v.dy).clamp(minH, maxH);
+      _resizeDelta.value = Offset(w - ws.width, h - ws.height);
+    }
+
+    void onResizeEnd() {
+      ref.read(windowManagerProvider.notifier).resizeWindow(
+        ws.windowId,
+        _resizeDelta.value.dx,
+        _resizeDelta.value.dy,
+        minW,
+        minH,
+        maxW,
+        maxH,
+      );
+      _resizeDelta.value = Offset.zero;
+    }
+
+    final frame = GestureDetector(
+      onTap: () {
+        ref.read(windowManagerProvider.notifier).focusWindow(ws.windowId);
+        if (_bodyDragEnabled) setState(() => _bodyDragEnabled = false);
+      },
+      onDoubleTap: () => setState(() => _bodyDragEnabled = true),
+      onPanUpdate: _bodyDragEnabled ? onPanUpdate : null,
+      onPanEnd: _bodyDragEnabled ? onPanEnd : null,
+      child: GlassContainer(
+        child: Column(
+          children: [
+            // Title bar — always draggable
+            GestureDetector(
+              onPanUpdate: onPanUpdate,
+              onPanEnd: onPanEnd,
+              child: WindowTitleBar(
+                title: ws.title,
+                icon: _icon,
+                dragging: _bodyDragEnabled,
+                onMinimize: () => ref
+                    .read(windowManagerProvider.notifier)
+                    .minimizeWindow(ws.windowId),
+                onMaximize: () => _toggleMaximize(screen),
+                onClose: () => ref
+                    .read(windowManagerProvider.notifier)
+                    .closeWindow(ws.windowId),
               ),
-              // Window content
-              Expanded(child: _buildContent()),
-              // Resize handle
-              Align(
-                alignment: Alignment.bottomRight,
-                child: _ResizeHandle(windowId: ws.windowId, minSize: _minSize),
+            ),
+            // Window content — isolated so the glass layer repainting during
+            // drag doesn't force the content to repaint too.
+            Expanded(child: RepaintBoundary(child: _buildContent())),
+            // Resize handle
+            Align(
+              alignment: Alignment.bottomRight,
+              child: _ResizeHandle(
+                onResize: onResizeUpdate,
+                onResizeEnd: onResizeEnd,
               ),
-            ],
-          ),
+            ),
+          ],
         ),
+      ),
+    );
+
+    return ListenableBuilder(
+      listenable: Listenable.merge([_dragDelta, _resizeDelta]),
+      child: frame,
+      builder: (context, child) => Positioned(
+        left: ws.x + _dragDelta.value.dx,
+        top: ws.y + _dragDelta.value.dy,
+        width: (ws.width + _resizeDelta.value.dx).clamp(minW, maxW),
+        height: (ws.height + _resizeDelta.value.dy).clamp(minH, maxH),
+        child: child!,
       ),
     );
   }
@@ -181,29 +219,16 @@ class _WindowFrameState extends ConsumerState<WindowFrame> {
   };
 }
 
-class _ResizeHandle extends ConsumerStatefulWidget {
-  const _ResizeHandle({required this.windowId, required this.minSize});
-  final String windowId;
-  final (double, double) minSize;
+class _ResizeHandle extends StatelessWidget {
+  const _ResizeHandle({required this.onResize, required this.onResizeEnd});
+  final void Function(Offset delta) onResize;
+  final VoidCallback onResizeEnd;
 
-  @override
-  ConsumerState<_ResizeHandle> createState() => _ResizeHandleState();
-}
-
-class _ResizeHandleState extends ConsumerState<_ResizeHandle> {
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onPanUpdate: (d) {
-        final (minW, minH) = widget.minSize;
-        ref.read(windowManagerProvider.notifier).resizeWindow(
-          widget.windowId,
-          d.delta.dx,
-          d.delta.dy,
-          minW,
-          minH,
-        );
-      },
+      onPanUpdate: (d) => onResize(d.delta),
+      onPanEnd: (_) => onResizeEnd(),
       child: Container(
         width: AetherDimensions.resizeHandleSize,
         height: AetherDimensions.resizeHandleSize,

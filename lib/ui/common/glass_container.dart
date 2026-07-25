@@ -22,9 +22,14 @@ class GlassContainer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // .grouped shares one blur pass between all GlassContainers under the
+    // nearest BackdropGroup (e.g. the lobby card list). With no ancestor
+    // group it behaves exactly like a regular BackdropFilter. Overlapping
+    // surfaces (floating windows) must NOT share a group, so the desktop
+    // window layer deliberately has no BackdropGroup.
     return ClipRRect(
       borderRadius: BorderRadius.circular(borderRadius),
-      child: BackdropFilter(
+      child: BackdropFilter.grouped(
         filter: ImageFilter.blur(sigmaX: blurSigma, sigmaY: blurSigma),
         child: Container(
           decoration: BoxDecoration(

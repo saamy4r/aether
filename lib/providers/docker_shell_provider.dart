@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:dartssh2/dartssh2.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:xterm/xterm.dart' hide TerminalState;
+import '../core/utils/shell_escape.dart';
 import 'terminal_provider.dart';
 import 'vps_connection_provider.dart';
 
@@ -51,7 +52,7 @@ class DockerShellNotifier extends FamilyNotifier<TerminalState,
       };
 
       // Send docker exec command; try bash first, fall back to sh
-      final id = arg.containerId;
+      final id = shQuote(arg.containerId);
       _session!.stdin.add(utf8.encode(
         'docker exec -it $id /bin/bash 2>/dev/null || docker exec -it $id /bin/sh\n',
       ));

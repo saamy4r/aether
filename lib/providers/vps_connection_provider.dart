@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 import 'package:dartssh2/dartssh2.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -7,6 +8,11 @@ import '../core/models/vps_model.dart';
 import '../core/services/credential_service.dart';
 import '../core/services/ssh_key_service.dart';
 import '../core/constants/strings.dart';
+import 'dashboard_provider.dart';
+import 'docker_provider.dart';
+import 'file_manager_provider.dart';
+import 'firewall_provider.dart';
+import 'service_provider.dart';
 import 'vps_list_provider.dart';
 
 const _kAutoConnectKey = 'aether_auto_connect_ids';
@@ -39,6 +45,8 @@ class VpsConnectionNotifier
   }
 
   Future<void> connect() async {
+    // Already connecting or connected — nothing to do.
+    if (state.isLoading || (state.valueOrNull?.isConnected ?? false)) return;
     final vpsList = ref.read(vpsListProvider);
     final vps = vpsList.firstWhere((v) => v.id == arg);
     state = const AsyncValue.loading();
@@ -69,6 +77,7 @@ class VpsConnectionNotifier
       }
 
       final passwordCopy = password;
+      _client?.close();
       _client = SSHClient(
         socket,
         username: vps.username,
@@ -125,6 +134,12 @@ class VpsConnectionNotifier
     state = const AsyncValue.data(
       VpsConnectionState(status: ConnectionStatus.disconnected),
     );
+    // Tear down per-VPS feature providers so their timers/sessions stop.
+    ref.invalidate(dashboardProvider(arg));
+    ref.invalidate(dockerProvider(arg));
+    ref.invalidate(firewallProvider(arg));
+    ref.invalidate(serviceProvider(arg));
+    ref.invalidate(fileManagerProvider(arg));
   }
 
   void _disconnect() {
@@ -134,22 +149,38 @@ class VpsConnectionNotifier
 
   SSHClient? get client => _client;
 
+  /// Runs [command] and returns its stdout.
+  ///
+  /// Drains stderr alongside stdout (so large error output can't stall the
+  /// channel) and, when [checkExitCode] is true, throws with the stderr text
+  /// if the command exits non-zero. Detection-style commands whose non-zero
+  /// exit is meaningful should pass [checkExitCode]: false.
   Future<String> exec(
     String command, {
     Duration timeout = const Duration(seconds: 15),
+    bool checkExitCode = true,
   }) async {
     final c = _client;
     if (c == null) throw StateError('Not connected');
     final session = await c.execute(command);
     try {
-      final chunks = await session.stdout
-          .toList()
-          .timeout(timeout, onTimeout: () {
+      final outBytes = <int>[];
+      final errBytes = <int>[];
+      await Future.wait([
+        session.stdout.forEach(outBytes.addAll),
+        session.stderr.forEach(errBytes.addAll),
+        session.done,
+      ]).timeout(timeout, onTimeout: () {
         session.close();
         throw TimeoutException('SSH exec timed out');
       });
-      await session.done;
-      return String.fromCharCodes(chunks.expand((e) => e));
+      final exitCode = session.exitCode ?? 0;
+      if (checkExitCode && exitCode != 0) {
+        final err = utf8.decode(errBytes, allowMalformed: true).trim();
+        throw Exception(
+            err.isNotEmpty ? err : 'Command failed (exit $exitCode)');
+      }
+      return utf8.decode(outBytes, allowMalformed: true);
     } finally {
       session.close();
     }
@@ -160,6 +191,11 @@ final vpsConnectionProvider = AsyncNotifierProvider.family<
     VpsConnectionNotifier, VpsConnectionState, String>(
   VpsConnectionNotifier.new,
 );
+
+/// Ids this app run has already attempted to auto-connect. The provider
+/// re-runs whenever the VPS list changes (icon moves, edits, …), so this
+/// prevents re-dialing servers on every list mutation.
+final _autoConnectAttempted = <String>{};
 
 /// Runs once on startup — reconnects any VPS that was connected before the app closed.
 final autoConnectProvider = FutureProvider<void>((ref) async {
@@ -172,7 +208,7 @@ final autoConnectProvider = FutureProvider<void>((ref) async {
 
   for (final id in ids) {
     // Only reconnect if this VPS still exists in the list
-    if (vpsList.any((v) => v.id == id)) {
+    if (vpsList.any((v) => v.id == id) && _autoConnectAttempted.add(id)) {
       ref.read(vpsConnectionProvider(id).notifier).connect();
     }
   }

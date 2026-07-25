@@ -13,12 +13,14 @@ class FirewallNotifier extends FamilyNotifier<FirewallState, String> {
     return const FirewallState();
   }
 
-  Future<String> _exec(String cmd) =>
-      ref.read(vpsConnectionProvider(vpsId).notifier).exec(cmd);
+  Future<String> _exec(String cmd, {bool checkExitCode = true}) =>
+      ref
+          .read(vpsConnectionProvider(vpsId).notifier)
+          .exec(cmd, checkExitCode: checkExitCode);
 
   Future<void> _detectAndLoad() async {
     try {
-      final which = await _exec(SshCommands.ufwDetect);
+      final which = await _exec(SshCommands.ufwDetect, checkExitCode: false);
       if (which.trim().isEmpty) {
         state = state.copyWith(ufwAvailable: false, isLoading: false);
         return;

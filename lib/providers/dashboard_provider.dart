@@ -19,15 +19,19 @@ class DashboardState {
   final String? errorMessage;
   final bool isPolling;
 
+  static const Object _keep = Object();
+
   DashboardState copyWith({
     ServerStats? stats,
     List<double>? cpuHistory,
-    String? errorMessage,
+    Object? errorMessage = _keep,
     bool? isPolling,
   }) => DashboardState(
     stats: stats ?? this.stats,
     cpuHistory: cpuHistory ?? this.cpuHistory,
-    errorMessage: errorMessage,
+    errorMessage: identical(errorMessage, _keep)
+        ? this.errorMessage
+        : errorMessage as String?,
     isPolling: isPolling ?? this.isPolling,
   );
 }
@@ -35,6 +39,8 @@ class DashboardState {
 class DashboardNotifier extends FamilyNotifier<DashboardState, String> {
   Timer? _pollTimer;
   Timer? _diskTimer;
+  bool _polling = false;
+  bool _diskPolling = false;
   int _consecutiveFailures = 0;
   List<DiskMount>? _lastDisks;
 
@@ -42,34 +48,43 @@ class DashboardNotifier extends FamilyNotifier<DashboardState, String> {
 
   @override
   DashboardState build(String arg) {
-    ref.onDispose(() {
-      _pollTimer?.cancel();
-      _diskTimer?.cancel();
-    });
+    ref.onDispose(_stopPolling);
     _startPolling();
     return const DashboardState(isPolling: true);
   }
 
   void _startPolling() {
+    _stopPolling();
     _poll();
     _pollTimer = Timer.periodic(const Duration(seconds: 5), (_) => _poll());
     _pollDisk();
-    _diskTimer = Timer.periodic(const Duration(seconds: 30), (_) => _pollDisk());
+    _diskTimer =
+        Timer.periodic(const Duration(seconds: 30), (_) => _pollDisk());
   }
 
+  void _stopPolling() {
+    _pollTimer?.cancel();
+    _pollTimer = null;
+    _diskTimer?.cancel();
+    _diskTimer = null;
+  }
+
+  bool get _isConnected =>
+      ref.read(vpsConnectionProvider(vpsId)).valueOrNull?.isConnected ?? false;
+
   Future<void> _poll() async {
-    final conn = ref.read(vpsConnectionProvider(vpsId));
-    final notifier = ref.read(vpsConnectionProvider(vpsId).notifier);
-    if (!conn.valueOrNull!.isConnected) return;
-
+    if (_polling || !_isConnected) return;
+    _polling = true;
     try {
-      final [cpuOut, netOut] = await Future.wait([
-        notifier.exec(SshCommands.cpuMemLoad),
-        notifier.exec(SshCommands.networkSample, timeout: const Duration(seconds: 12)),
-      ]);
-
-      final parsed = StatsParser.parseCpuMemLoad(cpuOut);
-      final net = NetParser.parseDelta(netOut);
+      final notifier = ref.read(vpsConnectionProvider(vpsId).notifier);
+      final out = await notifier.exec(
+        SshCommands.dashboardSample,
+        timeout: const Duration(seconds: 12),
+      );
+      final sections = out.split(SshCommands.sectionSplit);
+      final parsed = StatsParser.parseCpuMemLoad(sections.first);
+      final net =
+          sections.length > 1 ? NetParser.parseDelta(sections[1]) : null;
 
       final history = [
         ...state.cpuHistory,
@@ -96,21 +111,28 @@ class DashboardNotifier extends FamilyNotifier<DashboardState, String> {
     } catch (e) {
       _consecutiveFailures++;
       if (_consecutiveFailures >= 3) {
-        _pollTimer?.cancel();
+        _stopPolling();
         state = state.copyWith(
           errorMessage: 'Polling failed after 3 attempts. Tap to retry.',
           isPolling: false,
         );
       }
+    } finally {
+      _polling = false;
     }
   }
 
   Future<void> _pollDisk() async {
-    final notifier = ref.read(vpsConnectionProvider(vpsId).notifier);
+    if (_diskPolling || !_isConnected) return;
+    _diskPolling = true;
     try {
+      final notifier = ref.read(vpsConnectionProvider(vpsId).notifier);
       final out = await notifier.exec(SshCommands.diskUsage);
       _lastDisks = DfParser.parse(out);
-    } catch (_) {}
+    } catch (_) {
+    } finally {
+      _diskPolling = false;
+    }
   }
 
   void retry() {

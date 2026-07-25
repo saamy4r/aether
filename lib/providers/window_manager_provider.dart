@@ -54,13 +54,15 @@ class WindowManagerNotifier extends Notifier<List<WindowState>> {
     double dw,
     double dh,
     double minW,
-    double minH,
-  ) {
+    double minH, [
+    double maxW = double.infinity,
+    double maxH = double.infinity,
+  ]) {
     state = state.map((w) {
       if (w.windowId != windowId) return w;
       return w.copyWith(
-        width: (w.width + dw).clamp(minW, double.infinity),
-        height: (w.height + dh).clamp(minH, double.infinity),
+        width: (w.width + dw).clamp(minW, maxW),
+        height: (w.height + dh).clamp(minH, maxH),
       );
     }).toList();
   }

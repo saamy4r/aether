@@ -27,14 +27,22 @@ class _TaskbarState extends ConsumerState<Taskbar> {
     final vpsList = ref.watch(vpsListProvider);
     final activeVpsId = ref.watch(activeDesktopProvider);
 
+    // select() so the taskbar only rebuilds when a connection flips state,
+    // not on every connection-provider emission.
     final connectedCount = vpsList.where((v) {
-      final conn = ref.watch(vpsConnectionProvider(v.id));
-      return conn.valueOrNull?.isConnected == true;
+      return ref.watch(vpsConnectionProvider(v.id)
+          .select((c) => c.valueOrNull?.isConnected == true));
     }).length;
 
     final visibleWindows = activeVpsId == null
         ? <WindowState>[]
         : windows.where((w) => w.vpsId == activeVpsId).toList();
+
+    // Top z-index computed once here instead of every button re-deriving it
+    // from the full window list.
+    final topZ = visibleWindows
+        .where((w) => !w.isMinimized)
+        .fold<int>(0, (m, w) => w.zIndex > m ? w.zIndex : m);
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -85,7 +93,11 @@ class _TaskbarState extends ConsumerState<Taskbar> {
                       scrollDirection: Axis.horizontal,
                       child: Row(
                         children: visibleWindows
-                            .map((w) => TaskbarWindowButton(window: w))
+                            .map((w) => TaskbarWindowButton(
+                                  window: w,
+                                  isActive:
+                                      !w.isMinimized && w.zIndex == topZ,
+                                ))
                             .toList(),
                       ),
                     ),
@@ -155,7 +167,7 @@ class _SystemTray extends StatelessWidget {
               ),
             ),
           const SizedBox(width: 8),
-          _Clock(),
+          const _Clock(),
         ],
       ),
     );
@@ -163,6 +175,8 @@ class _SystemTray extends StatelessWidget {
 }
 
 class _Clock extends StatelessWidget {
+  const _Clock();
+
   @override
   Widget build(BuildContext context) {
     return StreamBuilder(

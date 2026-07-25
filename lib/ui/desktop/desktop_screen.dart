@@ -29,9 +29,9 @@ class DesktopScreen extends ConsumerWidget {
     // Trigger auto-reconnect on startup
     ref.watch(autoConnectProvider);
 
-    final vpsList     = ref.watch(vpsListProvider);
-    final locked      = ref.watch(authProvider);
-    final fullscreen  = ref.watch(fullscreenProvider);
+    final vpsList = ref.watch(vpsListProvider);
+    final locked = ref.watch(authProvider);
+    final fullscreen = ref.watch(fullscreenProvider);
     final activeVpsId = ref.watch(activeDesktopProvider);
 
     return Scaffold(
@@ -46,13 +46,11 @@ class DesktopScreen extends ConsumerWidget {
               const DesktopWallpaper(),
               _NoVpsPrompt(),
             ]
-
             // State 2 — VPS(es) added but none entered
             else if (activeVpsId == null) ...[
               const DesktopWallpaper(),
               _VpsLobby(),
             ]
-
             // State 3 — Active VPS desktop
             else ...[
               _ActiveDesktop(vpsId: activeVpsId),
@@ -130,63 +128,66 @@ class _VpsLobby extends ConsumerWidget {
     final vpsList = ref.watch(vpsListProvider);
 
     return Positioned.fill(
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(24, 40, 24, 40),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            const Text(
-              'Your Servers',
-              style: TextStyle(
-                color: AetherColors.textPrimary,
-                fontSize: 22,
-                fontWeight: FontWeight.w600,
-                letterSpacing: 0.5,
+      // One shared blur pass for all (non-overlapping) lobby cards.
+      child: BackdropGroup(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(24, 40, 24, 40),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              const Text(
+                'Your Servers',
+                style: TextStyle(
+                  color: AetherColors.textPrimary,
+                  fontSize: 22,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 0.5,
+                ),
               ),
-            ),
-            const SizedBox(height: 24),
+              const SizedBox(height: 24),
 
-            // Cards wrap into multiple rows/columns based on available width
-            Wrap(
-              spacing: 12,
-              runSpacing: 12,
-              alignment: WrapAlignment.center,
-              children: vpsList
-                  .map((vps) => _LobbyVpsCard(vps: vps))
-                  .toList(),
-            ),
-
-            const SizedBox(height: 20),
-
-            GestureDetector(
-              onTap: () => Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const AddVpsScreen()),
+              // Cards wrap into multiple rows/columns based on available width
+              Wrap(
+                spacing: 12,
+                runSpacing: 12,
+                alignment: WrapAlignment.center,
+                children: vpsList
+                    .map((vps) => _LobbyVpsCard(vps: vps))
+                    .toList(),
               ),
-              child: GlassContainer(
-                borderRadius: 12,
-                blurSigma: 20,
-                child: const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.add, color: AetherColors.accent, size: 18),
-                      SizedBox(width: 8),
-                      Text(
-                        'Add Server',
-                        style: TextStyle(
-                          color: AetherColors.accent,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
+
+              const SizedBox(height: 20),
+
+              GestureDetector(
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const AddVpsScreen()),
+                ),
+                child: GlassContainer(
+                  borderRadius: 12,
+                  blurSigma: 20,
+                  child: const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.add, color: AetherColors.accent, size: 18),
+                        SizedBox(width: 8),
+                        Text(
+                          'Add Server',
+                          style: TextStyle(
+                            color: AetherColors.accent,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -209,19 +210,43 @@ class _LobbyVpsCard extends ConsumerWidget {
       items: [
         PopupMenuItem(
           value: _CardAction.edit,
-          child: Row(children: [
-            const Icon(Icons.edit_outlined, size: 16, color: AetherColors.accent),
-            const SizedBox(width: 10),
-            Text('Edit', style: const TextStyle(color: AetherColors.textPrimary, fontSize: 13)),
-          ]),
+          child: Row(
+            children: [
+              const Icon(
+                Icons.edit_outlined,
+                size: 16,
+                color: AetherColors.accent,
+              ),
+              const SizedBox(width: 10),
+              Text(
+                'Edit',
+                style: const TextStyle(
+                  color: AetherColors.textPrimary,
+                  fontSize: 13,
+                ),
+              ),
+            ],
+          ),
         ),
         PopupMenuItem(
           value: _CardAction.delete,
-          child: Row(children: [
-            const Icon(Icons.delete_outline, size: 16, color: AetherColors.accentRed),
-            const SizedBox(width: 10),
-            Text('Delete', style: const TextStyle(color: AetherColors.accentRed, fontSize: 13)),
-          ]),
+          child: Row(
+            children: [
+              const Icon(
+                Icons.delete_outline,
+                size: 16,
+                color: AetherColors.accentRed,
+              ),
+              const SizedBox(width: 10),
+              Text(
+                'Delete',
+                style: const TextStyle(
+                  color: AetherColors.accentRed,
+                  fontSize: 13,
+                ),
+              ),
+            ],
+          ),
         ),
       ],
     ).then((action) async {
@@ -240,22 +265,31 @@ class _LobbyVpsCard extends ConsumerWidget {
               borderRadius: BorderRadius.circular(12),
               side: const BorderSide(color: AetherColors.glassBorder),
             ),
-            title: const Text('Delete server?',
-                style: TextStyle(color: AetherColors.textPrimary, fontSize: 15)),
+            title: const Text(
+              'Delete server?',
+              style: TextStyle(color: AetherColors.textPrimary, fontSize: 15),
+            ),
             content: Text(
               'Remove "${vps.label}" from Aether? This cannot be undone.',
-              style: const TextStyle(color: AetherColors.textSecondary, fontSize: 13),
+              style: const TextStyle(
+                color: AetherColors.textSecondary,
+                fontSize: 13,
+              ),
             ),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context, false),
-                child: const Text('Cancel',
-                    style: TextStyle(color: AetherColors.textSecondary)),
+                child: const Text(
+                  'Cancel',
+                  style: TextStyle(color: AetherColors.textSecondary),
+                ),
               ),
               TextButton(
                 onPressed: () => Navigator.pop(context, true),
-                child: const Text('Delete',
-                    style: TextStyle(color: AetherColors.accentRed)),
+                child: const Text(
+                  'Delete',
+                  style: TextStyle(color: AetherColors.accentRed),
+                ),
               ),
             ],
           ),
@@ -339,13 +373,17 @@ class _LobbyVpsCard extends ConsumerWidget {
                 Text(
                   vps.host,
                   style: const TextStyle(
-                      color: AetherColors.textSecondary, fontSize: 10),
+                    color: AetherColors.textSecondary,
+                    fontSize: 10,
+                  ),
                   overflow: TextOverflow.ellipsis,
                 ),
                 const SizedBox(height: 8),
                 Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 6,
+                    vertical: 2,
+                  ),
                   decoration: BoxDecoration(
                     color: isError
                         ? AetherColors.accentRed.withValues(alpha: 0.1)
@@ -368,7 +406,9 @@ class _LobbyVpsCard extends ConsumerWidget {
                   Text(
                     errorMsg,
                     style: const TextStyle(
-                        color: AetherColors.accentRed, fontSize: 10),
+                      color: AetherColors.accentRed,
+                      fontSize: 10,
+                    ),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -378,7 +418,9 @@ class _LobbyVpsCard extends ConsumerWidget {
                   Text(
                     isError ? 'Tap to retry' : 'Tap to connect',
                     style: const TextStyle(
-                        color: AetherColors.accent, fontSize: 10),
+                      color: AetherColors.accent,
+                      fontSize: 10,
+                    ),
                   ),
                 ],
               ],
@@ -420,6 +462,7 @@ class _ActiveDesktop extends ConsumerWidget {
     // VPS was deleted while this desktop was active — return to lobby
     if (vps == null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!context.mounted) return;
         ref.read(activeDesktopProvider.notifier).state = null;
       });
       return const SizedBox.shrink();
@@ -428,9 +471,7 @@ class _ActiveDesktop extends ConsumerWidget {
     final windows = ref.watch(windowManagerProvider);
     final wallpapers = ref.watch(wallpaperProvider);
 
-    final sorted = windows
-        .where((w) => w.vpsId == vpsId)
-        .toList()
+    final sorted = windows.where((w) => w.vpsId == vpsId).toList()
       ..sort((a, b) => a.zIndex.compareTo(b.zIndex));
 
     final seed = vpsId.hashCode.abs();
@@ -441,8 +482,18 @@ class _ActiveDesktop extends ConsumerWidget {
       children: [
         // Layer 0 — Wallpaper + long-press (mobile) / right-click (desktop) menu
         GestureDetector(
-          onLongPressStart: (d) => _showDesktopMenu(context, ref, d.globalPosition, imagePath != null),
-          onSecondaryTapDown: (d) => _showDesktopMenu(context, ref, d.globalPosition, imagePath != null),
+          onLongPressStart: (d) => _showDesktopMenu(
+            context,
+            ref,
+            d.globalPosition,
+            imagePath != null,
+          ),
+          onSecondaryTapDown: (d) => _showDesktopMenu(
+            context,
+            ref,
+            d.globalPosition,
+            imagePath != null,
+          ),
           child: DesktopWallpaper(
             seed: seed,
             accentHue: accentHue,
@@ -475,30 +526,25 @@ class _ActiveDesktop extends ConsumerWidget {
         ),
 
         // Layer 2 — Live stats widget for this VPS (top-right)
-        Positioned(
-          top: 16,
-          right: 16,
-          child: VpsStatsWidget(vps: vps),
-        ),
+        Positioned(top: 16, right: 16, child: VpsStatsWidget(vps: vps)),
 
         // Layer 3 — Floating windows (this VPS only, z-sorted)
         ...sorted
             .where((w) => !w.isMinimized)
-            .map((w) => WindowFrame(windowState: w)),
+            .map((w) => WindowFrame(key: ValueKey(w.windowId), windowState: w)),
 
         // Layer 4 — Taskbar (with scoped window buttons)
-        const Positioned(
-          bottom: 0,
-          left: 0,
-          right: 0,
-          child: Taskbar(),
-        ),
+        const Positioned(bottom: 0, left: 0, right: 0, child: Taskbar()),
       ],
     );
   }
 
   void _showDesktopMenu(
-      BuildContext context, WidgetRef ref, Offset position, bool hasCustomWallpaper) {
+    BuildContext context,
+    WidgetRef ref,
+    Offset position,
+    bool hasCustomWallpaper,
+  ) {
     showDialog(
       context: context,
       barrierColor: Colors.transparent,
@@ -538,10 +584,8 @@ class _DesktopContextMenu extends ConsumerWidget {
     final menuHeight = itemCount * _itemHeight + _vertPad * 2;
 
     // Clamp so menu never goes off-screen
-    final left = (position.dx)
-        .clamp(8.0, screenSize.width - _menuWidth - 8);
-    final top = (position.dy)
-        .clamp(8.0, screenSize.height - menuHeight - 8);
+    final left = (position.dx).clamp(8.0, screenSize.width - _menuWidth - 8);
+    final top = (position.dy).clamp(8.0, screenSize.height - menuHeight - 8);
 
     return Stack(
       children: [
@@ -566,15 +610,18 @@ class _DesktopContextMenu extends ConsumerWidget {
                         Navigator.pop(context);
                         final vpsList = ref.read(vpsListProvider);
                         final vps = vpsList.firstWhere((v) => v.id == vpsId);
-                        ref.read(windowManagerProvider.notifier).openWindow(
-                          WindowManagerNotifier.makeWindow(
-                            windowId: '${vpsId}_${WindowType.fileManager.name}',
-                            vpsId: vpsId,
-                            type: WindowType.fileManager,
-                            title: 'Files — ${vps.label}',
-                            screen: screenSize,
-                          ),
-                        );
+                        ref
+                            .read(windowManagerProvider.notifier)
+                            .openWindow(
+                              WindowManagerNotifier.makeWindow(
+                                windowId:
+                                    '${vpsId}_${WindowType.fileManager.name}',
+                                vpsId: vpsId,
+                                type: WindowType.fileManager,
+                                title: 'Files — ${vps.label}',
+                                screen: screenSize,
+                              ),
+                            );
                       },
                     ),
                     const Divider(color: AetherColors.glassBorder, height: 1),
@@ -599,7 +646,9 @@ class _DesktopContextMenu extends ConsumerWidget {
                         label: 'Reset Background',
                         color: AetherColors.textSecondary,
                         onTap: () {
-                          ref.read(wallpaperProvider.notifier).removeWallpaper(vpsId);
+                          ref
+                              .read(wallpaperProvider.notifier)
+                              .removeWallpaper(vpsId);
                           Navigator.pop(context);
                         },
                       ),

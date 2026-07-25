@@ -1,9 +1,9 @@
 import 'dart:async';
-import 'dart:convert';
 import 'dart:io';
 import 'package:dartssh2/dartssh2.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/models/sftp_entry.dart';
+import '../core/utils/shell_escape.dart';
 import 'vps_connection_provider.dart';
 
 enum ViewMode { list, grid }
@@ -92,26 +92,10 @@ class FileManagerNotifier extends FamilyAsyncNotifier<FileManagerState, String> 
     return '/';
   }
 
-  Future<String> _execSsh(String cmd) async {
-    final session = await _sshClient!.execute(cmd);
-    final outBytes = <List<int>>[];
-    final errBytes = <List<int>>[];
-    await Future.wait([
-      session.stdout.forEach(outBytes.add),
-      session.stderr.forEach(errBytes.add),
-      session.done,
-    ]);
-    final exitCode = session.exitCode ?? 0;
-    if (exitCode != 0) {
-      final err = utf8.decode(
-          errBytes.expand((b) => b).toList(),
-          allowMalformed: true).trim();
-      throw Exception(
-          err.isNotEmpty ? err : 'Command failed (exit $exitCode)');
-    }
-    return utf8.decode(
-        outBytes.expand((b) => b).toList(), allowMalformed: true);
-  }
+  // Long timeout: file operations (cp -r, zip) can legitimately take a while.
+  Future<String> _execSsh(String cmd) => ref
+      .read(vpsConnectionProvider(vpsId).notifier)
+      .exec(cmd, timeout: const Duration(minutes: 5));
 
   Future<FileManagerState> _listDir(String path) async {
     final current = state.valueOrNull;
@@ -187,9 +171,9 @@ class FileManagerNotifier extends FamilyAsyncNotifier<FileManagerState, String> 
         final src = '${cb.sourcePath}/$name';
         final dst = '$dest/$name';
         if (cb.isCut) {
-          await _execSsh('mv "$src" "$dst"');
+          await _execSsh('mv ${shQuote(src)} ${shQuote(dst)}');
         } else {
-          await _execSsh('cp -r "$src" "$dst"');
+          await _execSsh('cp -r ${shQuote(src)} ${shQuote(dst)}');
         }
       }
       // After cut+paste clear clipboard; after copy keep it for multi-paste
@@ -312,7 +296,7 @@ class FileManagerNotifier extends FamilyAsyncNotifier<FileManagerState, String> 
     final path = '${current.currentPath}/${entry.name}';
     try {
       if (entry.isDirectory) {
-        await _execSsh('rm -rf "$path"');
+        await _execSsh('rm -rf ${shQuote(path)}');
       } else {
         await _sftp!.remove(path);
       }
@@ -333,7 +317,7 @@ class FileManagerNotifier extends FamilyAsyncNotifier<FileManagerState, String> 
         final path = '${current.currentPath}/$name';
         final entry = entryMap[name];
         if (entry?.isDirectory == true) {
-          await _execSsh('rm -rf "$path"');
+          await _execSsh('rm -rf ${shQuote(path)}');
         } else {
           await _sftp!.remove(path);
         }
@@ -365,7 +349,8 @@ class FileManagerNotifier extends FamilyAsyncNotifier<FileManagerState, String> 
     final current = state.valueOrNull;
     if (current == null || _sshClient == null) return;
     try {
-      await _execSsh('cd "${current.currentPath}" && unzip -o "$name" -d .');
+      await _execSsh(
+          'cd ${shQuote(current.currentPath)} && unzip -o ${shQuote(name)} -d .');
       await refresh();
     } catch (e) {
       state = AsyncValue.data(current.copyWith(
@@ -378,20 +363,21 @@ class FileManagerNotifier extends FamilyAsyncNotifier<FileManagerState, String> 
     final current = state.valueOrNull;
     if (current == null || _sshClient == null) return;
     final dir = current.currentPath;
-    final files = names.map((n) => '"$n"').join(' ');
+    final files = names.map(shQuote).join(' ');
     try {
       // Try zip first; fall back to python3 zipfile if zip isn't installed
       try {
-        await _execSsh('cd "$dir" && zip -r "$archiveName" $files');
-      } catch (_) {
-        // zip not available — use python3 as fallback
-        final pyFiles = names.map((n) => "'$n'").join(', ');
         await _execSsh(
-          'cd "$dir" && python3 -c "'
-          'import zipfile, os; '
-          'z = zipfile.ZipFile(\\"$archiveName\\", \\"w\\", zipfile.ZIP_DEFLATED); '
-          '[z.write(f) for f in [$pyFiles]]; '
-          'z.close()"',
+            'cd ${shQuote(dir)} && zip -r ${shQuote(archiveName)} $files');
+      } catch (_) {
+        // zip not available — use python3, passing names via argv so they are
+        // never embedded in the python source
+        await _execSsh(
+          'cd ${shQuote(dir)} && python3 -c '
+          "'import sys, zipfile; "
+          'z = zipfile.ZipFile(sys.argv[1], "w", zipfile.ZIP_DEFLATED); '
+          '[z.write(f) for f in sys.argv[2:]]; '
+          "z.close()' ${shQuote(archiveName)} $files",
         );
       }
       await refresh();

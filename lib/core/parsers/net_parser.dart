@@ -1,6 +1,8 @@
 import '../models/server_stats.dart';
 
 class NetParser {
+  static final _wsRe = RegExp(r'\s+');
+
   /// Parses two snapshots of /proc/net/dev separated by 1 second.
   /// Returns NetworkStats for the most active non-loopback interface.
   static NetworkStats? parseDelta(String output) {
@@ -10,7 +12,10 @@ class NetParser {
       final lines = output.split('\n');
       final headerIndices = <int>[];
       for (int i = 0; i < lines.length; i++) {
-        if (lines[i].contains('Inter-|') || lines[i].contains('face |')) {
+        // Only the FIRST header line ('Inter-|') marks a snapshot start.
+        // Matching the second header line ('face |') too would split the two
+        // concatenated snapshots in the wrong place.
+        if (lines[i].contains('Inter-|')) {
           headerIndices.add(i);
         }
       }
@@ -28,7 +33,7 @@ class NetParser {
       if (!line.contains(':')) continue;
       final colonIdx = line.indexOf(':');
       final iface = line.substring(0, colonIdx).trim();
-      final parts = line.substring(colonIdx + 1).trim().split(RegExp(r'\s+'));
+      final parts = line.substring(colonIdx + 1).trim().split(_wsRe);
       if (parts.length < 10) continue;
       final rx = int.tryParse(parts[0]) ?? 0;
       final tx = int.tryParse(parts[8]) ?? 0;
@@ -52,7 +57,9 @@ class NetParser {
 
       final rx = (after.rx - before.rx).clamp(0, 1 << 32).toDouble();
       final tx = (after.tx - before.tx).clamp(0, 1 << 32).toDouble();
-      if (rx + tx > bestTotal) {
+      // best == null keeps an idle (all-zero) interface as a valid reading
+      // instead of reporting no network data at all.
+      if (best == null || rx + tx > bestTotal) {
         bestTotal = rx + tx;
         best = NetworkStats(
           rxBytesPerSec: rx,

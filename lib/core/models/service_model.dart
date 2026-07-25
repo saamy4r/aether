@@ -39,15 +39,19 @@ class ServiceState {
   final bool isLoading;
   final String? errorMessage;
 
+  static const Object _keep = Object();
+
   ServiceState copyWith({
     List<ServiceModel>? services,
     bool? isAvailable,
     bool? isLoading,
-    String? errorMessage,
+    Object? errorMessage = _keep,
   }) => ServiceState(
     services:     services     ?? this.services,
     isAvailable:  isAvailable  ?? this.isAvailable,
     isLoading:    isLoading    ?? this.isLoading,
-    errorMessage: errorMessage,
+    errorMessage: identical(errorMessage, _keep)
+        ? this.errorMessage
+        : errorMessage as String?,
   );
 }

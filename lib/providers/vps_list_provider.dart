@@ -15,8 +15,18 @@ class VpsListNotifier extends Notifier<List<VpsModel>> {
   Future<void> _load() async {
     final prefs = await SharedPreferences.getInstance();
     final raw = prefs.getStringList(_kVpsListKey) ?? [];
+    // Skip corrupt entries instead of letting one crash the whole list.
     state = raw
-        .map((s) => VpsModel.fromJson(jsonDecode(s) as Map<String, dynamic>))
+        .map((s) {
+          try {
+            final vps =
+                VpsModel.fromJson(jsonDecode(s) as Map<String, dynamic>);
+            return vps.id.isEmpty ? null : vps;
+          } catch (_) {
+            return null;
+          }
+        })
+        .whereType<VpsModel>()
         .toList();
   }
 
