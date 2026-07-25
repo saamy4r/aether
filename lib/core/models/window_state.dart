@@ -1,6 +1,6 @@
 import 'package:flutter/foundation.dart';
 
-enum WindowType { dashboard, terminal, fileManager, docker, dockerLogs, dockerShell, firewall, serviceManager }
+enum WindowType { dashboard, terminal, fileManager, docker, dockerLogs, dockerShell, firewall, serviceManager, settings }
 
 @immutable
 class WindowState {

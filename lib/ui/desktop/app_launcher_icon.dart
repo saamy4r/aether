@@ -82,6 +82,7 @@ class AppLauncherIcon extends ConsumerWidget {
       WindowType.dockerShell => 'Shell',
       WindowType.firewall        => 'Firewall — ${vps.label}',
       WindowType.serviceManager  => 'Services — ${vps.label}',
+      WindowType.settings        => 'Settings',
     };
 
     ref.read(windowManagerProvider.notifier).openWindow(

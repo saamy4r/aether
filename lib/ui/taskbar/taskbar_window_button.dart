@@ -23,6 +23,7 @@ class TaskbarWindowButton extends ConsumerWidget {
     WindowType.dockerShell => Icons.terminal,
     WindowType.firewall        => Icons.security,
     WindowType.serviceManager  => Icons.settings_applications,
+    WindowType.settings        => Icons.settings,
   };
 
   @override

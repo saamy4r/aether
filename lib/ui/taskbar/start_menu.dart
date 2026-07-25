@@ -120,6 +120,16 @@ class _StartMenuState extends ConsumerState<StartMenu> {
                   // System section
                   const _SectionLabel('System'),
                   _MenuItem(
+                    icon: Icons.settings,
+                    label: 'Settings',
+                    expanded: _expandedMenuLabel == 'Settings',
+                    onTap: () => _open(context, WindowType.settings),
+                    onLongPress: () => setState(() => _expandedMenuLabel =
+                        _expandedMenuLabel == 'Settings' ? null : 'Settings'),
+                    onSecondaryTap: () => setState(() => _expandedMenuLabel =
+                        _expandedMenuLabel == 'Settings' ? null : 'Settings'),
+                  ),
+                  _MenuItem(
                     icon: Icons.grid_view_rounded,
                     label: 'Servers',
                     expanded: _expandedMenuLabel == 'Servers',
@@ -177,6 +187,7 @@ class _StartMenuState extends ConsumerState<StartMenu> {
       WindowType.dockerShell => 'Shell',
       WindowType.firewall        => 'Firewall — ${vps.label}',
       WindowType.serviceManager  => 'Services — ${vps.label}',
+      WindowType.settings        => 'Settings',
     };
     ref.read(windowManagerProvider.notifier).openWindow(
       WindowManagerNotifier.makeWindow(

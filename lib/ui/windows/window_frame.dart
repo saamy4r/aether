@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/constants/colors.dart';
 import '../../core/constants/dimensions.dart';
 import '../../core/models/window_state.dart';
+import '../../providers/glass_settings_provider.dart';
 import '../../providers/window_manager_provider.dart';
 import '../common/glass_container.dart';
 import 'window_title_bar.dart';
@@ -13,6 +14,7 @@ import 'docker/docker_window.dart';
 import 'docker/docker_logs_window.dart';
 import 'firewall/firewall_window.dart';
 import 'services/service_manager_window.dart';
+import 'settings/settings_window.dart';
 
 class WindowFrame extends ConsumerStatefulWidget {
   const WindowFrame({super.key, required this.windowState});
@@ -52,6 +54,7 @@ class _WindowFrameState extends ConsumerState<WindowFrame> {
     WindowType.dockerShell => (AetherDimensions.dockerShellMinW, AetherDimensions.dockerShellMinH),
     WindowType.firewall        => (AetherDimensions.firewallMinW,        AetherDimensions.firewallMinH),
     WindowType.serviceManager  => (AetherDimensions.serviceManagerMinW,  AetherDimensions.serviceManagerMinH),
+    WindowType.settings        => (AetherDimensions.settingsMinW,        AetherDimensions.settingsMinH),
   };
 
   IconData get _icon => switch (ws.type) {
@@ -63,6 +66,7 @@ class _WindowFrameState extends ConsumerState<WindowFrame> {
     WindowType.dockerShell => Icons.terminal,
     WindowType.firewall        => Icons.security,
     WindowType.serviceManager  => Icons.settings_applications,
+    WindowType.settings        => Icons.settings,
   };
 
   void _toggleMaximize(Size screen) {
@@ -104,6 +108,7 @@ class _WindowFrameState extends ConsumerState<WindowFrame> {
   @override
   Widget build(BuildContext context) {
     final screen = MediaQuery.sizeOf(context);
+    final glass = ref.watch(glassSettingsProvider);
     final (minW, minH) = _minSize;
     final maxW = screen.width;
     final maxH = screen.height - AetherDimensions.taskbarHeight;
@@ -152,6 +157,8 @@ class _WindowFrameState extends ConsumerState<WindowFrame> {
       onPanUpdate: _bodyDragEnabled ? onPanUpdate : null,
       onPanEnd: _bodyDragEnabled ? onPanEnd : null,
       child: GlassContainer(
+        color: glass.windowColor,
+        blurSigma: glass.blur,
         child: Column(
           children: [
             // Title bar — always draggable
@@ -216,6 +223,7 @@ class _WindowFrameState extends ConsumerState<WindowFrame> {
         vpsId: ws.vpsId),
     WindowType.firewall        => FirewallWindowContent(vpsId: ws.vpsId),
     WindowType.serviceManager  => ServiceManagerWindowContent(vpsId: ws.vpsId),
+    WindowType.settings        => const SettingsWindowContent(),
   };
 }
 
