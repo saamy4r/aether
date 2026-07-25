@@ -26,12 +26,14 @@ class FullscreenNotifier extends StateNotifier<bool> {
       await windowManager.setFullScreen(state);
     } else {
       if (state) {
-        SystemChrome.setEnabledSystemUIMode(
-          SystemUiMode.manual,
-          overlays: [],
+        // immersiveSticky reliably hides status + nav bars on modern
+        // Android (incl. the Android 15 edge-to-edge enforcement) and
+        // re-hides them after a swipe reveals them.
+        await SystemChrome.setEnabledSystemUIMode(
+          SystemUiMode.immersiveSticky,
         );
       } else {
-        SystemChrome.setEnabledSystemUIMode(
+        await SystemChrome.setEnabledSystemUIMode(
           SystemUiMode.manual,
           overlays: SystemUiOverlay.values,
         );
